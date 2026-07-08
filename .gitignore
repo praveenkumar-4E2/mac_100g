@@ -1,0 +1,52 @@
+# Simulation
+*.log
+*.jou
+*.wlf
+*.vcd
+*.fsdb
+*.vpd
+*.key
+*.ini
+*.vstf
+
+# Compile
+work/
+csrc/
+simv*
+DVEfiles/
+
+# Temporary
+*.swp
+*.tmp
+
+# Coverage
+cov/
+urgReport/
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# GVim/Vim temporary files
+*.swp
+*.swo
+*.swn
+*~
+
+# Vim session files
+Session.vim
+
+# Vim undo files
+*.un~
+
+# Vim backup files
+*.bak
+
+# Vim directory
+.vim/
+.vimrc.local
+
