@@ -7,6 +7,7 @@
 class mac_s_tx_agt_c extends uvm_agent;
   `uvm_component_utils(mac_s_tx_agt_c)
 
+  mac_s_tx_mon_c mon_h;
   extern function new(
       string name = "mac_s_tx_agt_c",
       uvm_component parent = null
@@ -35,5 +36,6 @@ endfunction
  */
 function void mac_s_tx_agt_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
+  mon_h=mac_s_tx_mon_c::type_id::create("mon_h",this);
 endfunction
 
