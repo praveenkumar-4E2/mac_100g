@@ -4,9 +4,10 @@
  *        verification components, managing one or more reset
  *        agents within the verification environment.
  */
-class mac_rst_agt_top_c extends uvm_agent;
+class mac_rst_agt_top_c extends uvm_env;
   `uvm_component_utils(mac_rst_agt_top_c)
 
+  mac_rst_agt_c agt_h;
   extern function new(
     string name = "mac_rst_agt_top_c",
     uvm_component parent = null
@@ -35,4 +36,5 @@ endfunction
  */
 function void mac_rst_agt_top_c::build_phase(uvm_phase phase);
  super.build_phase(phase);
+ agt_h=mac_rst_agt_c::type_id::create("agt_h",this);
 endfunction
