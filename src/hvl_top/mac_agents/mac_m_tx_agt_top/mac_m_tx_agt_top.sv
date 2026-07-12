@@ -1,3 +1,11 @@
+/**
+ * @brief MAC Master TX Agent Top.
+ *
+ * Top-level container for one or more MAC Master TX agents.
+ * Responsible for creating and managing the transmit agent
+ * instances used in the verification environment.
+ */
+
 class mac_m_tx_agt_top_c extends uvm_agent;
   `uvm_component_utils(mac_m_tx_agt_top_c)
 
@@ -11,6 +19,15 @@ class mac_m_tx_agt_top_c extends uvm_agent;
 
 endclass
 
+/**
+ * @brief Constructor for the MAC Master TX Agent Top.
+ *
+ * Initializes the agent top by calling the parent
+ * class constructor.
+ *
+ * @param name Name of the agent top component.
+ * @param parent Parent component in the UVM hierarchy.
+ */
 function mac_m_tx_agt_top_c::new(
   string name = "mac_m_tx_agt_top_c",
   uvm_component parent = null
@@ -18,6 +35,15 @@ function mac_m_tx_agt_top_c::new(
   super.new(name,parent);
 endfunction
 
+/**
+ * @brief Implements the UVM build phase.
+ *
+ * Creates all required MAC Master TX agent instances
+ * and retrieves any configuration objects needed before
+ * simulation starts.
+ *
+ * @param phase Current UVM build phase.
+ */
 function void mac_m_tx_agt_top_c::build_phase(
   uvm_phase phase
 );
