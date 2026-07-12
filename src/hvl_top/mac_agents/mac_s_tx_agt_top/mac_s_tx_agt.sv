@@ -4,6 +4,7 @@
  *        such as the driver, sequencer, and monitor, to verify
  *        the MAC transmit interface.
  */
+
 class mac_s_tx_agt_c extends uvm_agent;
   `uvm_component_utils(mac_s_tx_agt_c)
 
