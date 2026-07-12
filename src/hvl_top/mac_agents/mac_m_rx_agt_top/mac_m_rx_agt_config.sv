@@ -1,12 +1,32 @@
-class mac_m_rx_agt_config extends uvm_object;
-  `uvm_component_utils(mac_m_rx_agt_config)
+/**
+ * @brief Configuration object for the MAC RX agent.
+ *
+ * This class stores the configuration parameters required
+ * by the MAC RX agent and its components. It provides a
+ * centralized mechanism for sharing configuration data
+ * throughout the verification environment.
+ */
+class mac_m_rx_agt_cfg_c extends uvm_object;
 
-  extern function new (
-    string name = "mac_m_rx_agt_config");
+  /** Register the configuration object with the UVM factory. */
+  `uvm_object_utils(mac_m_rx_agt_cfg_c)
 
+  /** Constructor declaration. */
+  extern function new(
+    string name = "mac_m_rx_agt_cfg_c"
+  );
 endclass
 
-function mac_m_rx_agt_config::new(
-  string name = "mac_m_rx_agt_config");
+
+/**
+ * @brief Constructor implementation.
+ *
+ * Initializes the MAC RX agent configuration object.
+ *
+ * @param name Instance name of the configuration object.
+ */
+function mac_m_rx_agt_cfg_c::new(
+  string name = "mac_m_rx_agt_cfg_c"
+);
   super.new(name);
 endfunction
