@@ -7,17 +7,13 @@
  * environment-level configuration during simulation.
  */
 class mac_m_rx_agt_top_c extends uvm_env;
-
-  /** Register the environment with the UVM factory. */
   `uvm_component_utils(mac_m_rx_agt_top_c)
 
-  /** Constructor declaration. */
   extern function new(
     string name = "mac_m_rx_agt_top_c",
     uvm_component parent = null
   );
 
-  /** Build phase declaration. */
   extern function void build_phase(
     uvm_phase phase
   );
