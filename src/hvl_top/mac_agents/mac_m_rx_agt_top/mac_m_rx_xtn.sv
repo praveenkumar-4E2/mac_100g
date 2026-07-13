@@ -5,13 +5,11 @@
  * the sequence, driver, and monitor in the MAC RX agent.
  */
 class mac_m_rx_xtn_c extends uvm_sequence_item;
-
-  /** Register the transaction with the UVM factory. */
   `uvm_object_utils(mac_m_rx_xtn_c)
 
   extern function new(string name = "mac_m_rx_xtn_c");
+  
 endclass
-
 
 /**
  * @brief Constructor implementation.
