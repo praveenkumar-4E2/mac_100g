@@ -7,17 +7,13 @@
  * selected transaction to the driver for execution.
  */
 class mac_m_rx_seqr_c extends uvm_sequencer #(mac_m_rx_xtn);
-
-  /** Register the sequencer with the UVM factory. */
   `uvm_component_utils(mac_m_rx_seqr_c)
 
-  /** Constructor declaration. */
   extern function new(
     string name = "mac_m_rx_seqr_c",
     uvm_component parent = null
   );
 
-  /** Build phase declaration. */
   extern function void build_phase(uvm_phase phase);
 
 endclass
