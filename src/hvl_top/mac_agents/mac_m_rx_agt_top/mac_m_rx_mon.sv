@@ -8,22 +8,17 @@
  * analysis components for checking and coverage.
  */
 class mac_m_rx_mon_c extends uvm_monitor;
-
-  /** Register the monitor with the UVM factory. */
   `uvm_component_utils(mac_m_rx_mon_c)
 
-  /** Constructor declaration. */
   extern function new(
     string name = "mac_m_rx_mon_c",
     uvm_component parent = null
   );
-
-  /** Build phase declaration. */
   extern function void build_phase(
     uvm_phase phase
   );
-endclass
 
+endclass
 
 /**
  * @brief Constructor implementation.
@@ -40,7 +35,6 @@ function mac_m_rx_mon_c::new(
 );
   super.new(name, parent);
 endfunction
-
 
 /**
  * @brief Build phase implementation.
