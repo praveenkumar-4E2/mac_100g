@@ -13,7 +13,6 @@ class mac_m_rx_agt_top_c extends uvm_env;
     string name = "mac_m_rx_agt_top_c",
     uvm_component parent = null
   );
-
   extern function void build_phase(
     uvm_phase phase
   );
