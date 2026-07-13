@@ -3,8 +3,9 @@
  *        manages the RX-side verification agent components.
  *        Active primarily during the build_phase.
  */
-class mac_s_rx_agt_top_c extends uvm_agent;
+class mac_s_rx_agt_top_c extends uvm_env;
   `uvm_component_utils(mac_s_rx_agt_top_c)
+   mac_s_rx_agt_c s_rx_agt_h;
 
    extern function new (
      string name = "mac_s_rx_agt_top_c",
@@ -35,6 +36,7 @@ endfunction
  */
 function void mac_s_rx_agt_top_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
+  s_rx_agt_h = mac_s_rx_agt_c::type_id::create("s_rx_agt_h",this);
 endfunction
 
 
