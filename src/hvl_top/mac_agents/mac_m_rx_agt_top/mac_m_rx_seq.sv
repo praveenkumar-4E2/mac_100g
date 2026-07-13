@@ -7,12 +7,10 @@
  * drives the corresponding signal-level activity on the DUT.
  */
 class mac_m_rx_seq_c extends uvm_sequence #(mac_m_rx_xtn);
-
-  /** Register the sequence with the UVM factory. */
   `uvm_object_utils(mac_m_rx_seq_c)
 
-  /** Constructor declaration. */
   extern function new(string name = "mac_m_rx_seq_c");
+  
 endclass
 
 
