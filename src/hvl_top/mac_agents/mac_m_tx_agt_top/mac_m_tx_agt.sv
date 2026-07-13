@@ -9,6 +9,10 @@
 class mac_m_tx_agt_c extends uvm_agent;
   `uvm_component_utils(mac_m_tx_agt_c)
 
+  mac_m_tx_seqr_c m_tx_seqr_h;
+  mac_m_tx_drv_c  m_tx_drv_h;
+  mac_m_tx_mon_c  m_tx_mon_h;
+
   extern function new(
     string name = "mac_m_tx_agt_c",
     uvm_component parent = null
@@ -52,6 +56,9 @@ function void mac_m_tx_agt_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
+  m_tx_seqr_h = mac_m_tx_seqr_c::type_id::create("m_tx_seqr_h" ,this);
+  m_tx_drv_h  = mac_m_tx_drv_c::type_id::create("m_tx_drv_h",this);
+  m_tx_mon_h  = mac_m_tx_mon_c::type_id::create("m_tx_mon_h",this);
 endfunction
 
 /**
@@ -65,4 +72,5 @@ endfunction
 function void mac_m_tx_agt_c::connect_phase(
   uvm_phase phase
 );
+  m_tx_drv_h.seq_item_port.connect(m_tx_seqr_h.seq_item_export);
 endfunction
