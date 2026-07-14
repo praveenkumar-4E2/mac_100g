@@ -9,6 +9,7 @@
  */
 class mac_m_rx_mon_c extends uvm_monitor;
   `uvm_component_utils(mac_m_rx_mon_c)
+  uvm_analysis_port #(mac_m_rx_xtn_c) item_collect_port;
 
   extern function new(
     string name = "mac_m_rx_mon_c",
