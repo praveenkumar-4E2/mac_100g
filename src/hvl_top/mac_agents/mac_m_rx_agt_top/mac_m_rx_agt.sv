@@ -8,6 +8,9 @@
  */
 class mac_m_rx_agt_c extends uvm_agent;
   `uvm_component_utils(mac_m_rx_agt_c)
+  mac_m_rx_drv_c m_rx_drv_h;
+  mac_m_rx_mon_c m_rx_mon_h;
+  mac_m_rx_seqr_c m_rx_seqr_h;
 
   extern function new(
     string name = "mac_m_rx_agt_c",
@@ -53,6 +56,9 @@ function void mac_m_rx_agt_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
+  m_rx_drv_h=mac_m_rx_drv_c::type_id::create("m_rx_drv_h",this);
+  m_rx_mon_h=mac_m_rx_mon_c::type_id::create("m_rx_mon_h",this);
+  m_rx_seqr_h=mac_m_rx_seqr_c::type_id::create("m_rx_seqr_h",this);
 endfunction
 
 /**
