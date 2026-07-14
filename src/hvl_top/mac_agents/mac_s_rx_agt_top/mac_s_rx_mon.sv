@@ -5,6 +5,9 @@
 class mac_s_rx_mon_c extends uvm_monitor;
   `uvm_component_utils(mac_s_rx_mon_c)
 
+   uvm_analysis_port #(mac_m_rx_xtn_c)  item_collect_port;
+   mac_m_rx_xtn_c m_rx_xtn_h;
+
    extern function new( 
      string name = "mac_s_rx_mon_c",
      uvm_component parent = null
@@ -26,6 +29,8 @@ function mac_s_rx_mon_c::new(
  );
   super.new(name,parent);
 
+  item_collect_port = new("item_collect_port",this);
+
 endfunction
 
 /**
@@ -35,4 +40,5 @@ endfunction
  */
 function void mac_s_rx_mon_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
-endfunction
+  m_rx_xtn_h = mac_m_rx_xtn_c::type_id::create("m_rx_xtn_h");
+  endfunction

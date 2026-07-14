@@ -6,7 +6,7 @@
  * sequencer forwards these transactions to the driver, which
  * drives the corresponding signal-level activity on the DUT.
  */
-class mac_m_rx_seq_c extends uvm_sequence #(mac_m_rx_xtn);
+class mac_m_rx_seq_c extends uvm_sequence #(mac_m_rx_xtn_c);
 
   /** Register the sequence with the UVM factory. */
   `uvm_object_utils(mac_m_rx_seq_c)
