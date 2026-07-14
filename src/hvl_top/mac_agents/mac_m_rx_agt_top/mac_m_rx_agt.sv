@@ -74,4 +74,5 @@ function void mac_m_rx_agt_c::connect_phase(
   uvm_phase phase
 );
   super.connect_phase(phase);
+  m_rx_drv_h.seq_item_port.connect(m_rx_seqr_h);
 endfunction
