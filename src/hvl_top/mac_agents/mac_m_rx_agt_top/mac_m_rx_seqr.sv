@@ -6,7 +6,7 @@
  * sequences, arbitrates them if required, and forwards the
  * selected transaction to the driver for execution.
  */
-class mac_m_rx_seqr_c extends uvm_sequencer #(mac_m_rx_xtn);
+class mac_m_rx_seqr_c extends uvm_sequencer #(mac_m_rx_xtn_c);
 
   /** Register the sequencer with the UVM factory. */
   `uvm_component_utils(mac_m_rx_seqr_c)

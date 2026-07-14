@@ -20,7 +20,7 @@ endclass
  *
  * @param name Instance name of the transaction.
  */
-function mac_m_rx_xtn::new(
+function mac_m_rx_xtn_c ::new(
   string name = "mac_m_rx_xtn_c"
 );
   super.new(name);

@@ -6,7 +6,7 @@
  * drives the corresponding interface signals according to the
  * MAC RX protocol timing requirements.
  */
-class mac_m_rx_drv_c extends uvm_driver #(mac_m_rx_xtn);
+class mac_m_rx_drv_c extends uvm_driver #(mac_m_rx_xtn_c);
 
   /** Register the driver with the UVM factory. */
   `uvm_component_utils(mac_m_rx_drv_c)

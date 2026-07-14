@@ -34,7 +34,7 @@ endclass
  */
 function mac_tx_cov_c::new(
   string name="mac_tx_cov_c",
-  uvm_component parent
+  uvm_component parent = null
  );
 super.new(name,parent);
 endfunction
