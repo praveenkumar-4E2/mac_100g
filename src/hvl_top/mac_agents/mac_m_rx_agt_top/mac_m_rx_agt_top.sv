@@ -11,6 +11,7 @@ class mac_m_rx_agt_top_c extends uvm_env;
   /** Register the environment with the UVM factory. */
   `uvm_component_utils(mac_m_rx_agt_top_c)
 
+  mac_m_rx_agt_c m_rx_agt_h;
   /** Constructor declaration. */
   extern function new(
     string name = "mac_m_rx_agt_top_c",
@@ -21,6 +22,7 @@ class mac_m_rx_agt_top_c extends uvm_env;
   extern function void build_phase(
     uvm_phase phase
   );
+
 endclass
 
 
@@ -53,4 +55,5 @@ function void mac_m_rx_agt_top_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
+  m_rx_agt_h = mac_m_rx_agt_c::type_id::create("m_rx_agt_h",this);
 endfunction

@@ -6,7 +6,7 @@
  */
 class mac_rst_agt_top_c extends uvm_agent;
   `uvm_component_utils(mac_rst_agt_top_c)
-
+  mac_rst_agt_c rst_agt_h;
   extern function new(
     string name = "mac_rst_agt_top_c",
     uvm_component parent = null
@@ -35,4 +35,5 @@ endfunction
  */
 function void mac_rst_agt_top_c::build_phase(uvm_phase phase);
  super.build_phase(phase);
+ rst_agt_h = mac_rst_agt_c::type_id::create("rst_agt_h",this);
 endfunction

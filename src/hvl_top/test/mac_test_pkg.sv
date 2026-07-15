@@ -41,6 +41,7 @@ package mac_test_pkg;
   `include "mac_tx_cov.sv"
   `include "mac_rx_cov.sv"
   `include "mac_sb.sv"
+  `include "mac_top.sv"
   `include "mac_virtual_seqr.sv"
   `include "mac_virtual_seq.sv"
 

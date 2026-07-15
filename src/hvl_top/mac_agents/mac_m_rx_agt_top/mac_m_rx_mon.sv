@@ -12,6 +12,7 @@ class mac_m_rx_mon_c extends uvm_monitor;
   /** Register the monitor with the UVM factory. */
   `uvm_component_utils(mac_m_rx_mon_c)
 
+   uvm_analysis_port #(mac_m_rx_xtn_c)  item_collect_port;
   /** Constructor declaration. */
   extern function new(
     string name = "mac_m_rx_mon_c",
