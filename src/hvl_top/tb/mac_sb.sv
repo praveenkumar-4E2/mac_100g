@@ -13,12 +13,16 @@
 class mac_sb_c extends uvm_scoreboard;
   `uvm_component_utils(mac_sb_c)
 
+  uvm_tlm_analysis_fifo#(mac_m_tx_xtn_c) m_tx_fifo;
+  uvm_tlm_analysis_fifo#(mac_m_tx_xtn_c) s_tx_fifo;
+  uvm_tlm_analysis_fifo#(mac_m_rx_xtn_c) m_rx_fifo;
+  uvm_tlm_analysis_fifo#(mac_m_rx_xtn_c) s_rx_fifo;
+
   extern function new(
       string name="mac_sb_c",
       uvm_component parent=null
   );
   extern function void build_phase(uvm_phase phase);
-  extern function void connect_phase(uvm_phase phase);
   extern task          run_phase( uvm_phase phase);
 
 
@@ -42,6 +46,10 @@ function mac_sb_c::new(
     uvm_component parent=null
 );
   super.new(name,parent);
+  m_tx_fifo = new("m_tx_fifo",this);
+  s_tx_fifo = new("s_tx_fifo",this);
+  m_rx_fifo = new("m_rx_fifo",this);
+  s_rx_fifo = new("s_rx_fifo",this);
 endfunction
 
 /**
@@ -58,19 +66,7 @@ function void mac_sb_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
 endfunction
 
-/**
- * @brief
- * Establishes all required TLM connections for the scoreboard.
- *
- * @param phase
- * Current UVM connect phase handle.
- *
- * @return
- * None.
- */
-function void mac_sb_c::connect_phase(uvm_phase phase);
-  super.connect_phase(phase);
-endfunction
+
 
 /**
  * @brief

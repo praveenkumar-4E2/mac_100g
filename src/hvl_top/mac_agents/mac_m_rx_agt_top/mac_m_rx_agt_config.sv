@@ -7,16 +7,12 @@
  * throughout the verification environment.
  */
 class mac_m_rx_agt_cfg_c extends uvm_object;
-
-  /** Register the configuration object with the UVM factory. */
   `uvm_object_utils(mac_m_rx_agt_cfg_c)
 
-  /** Constructor declaration. */
   extern function new(
     string name = "mac_m_rx_agt_cfg_c"
   );
 endclass
-
 
 /**
  * @brief Constructor implementation.

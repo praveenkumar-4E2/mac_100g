@@ -9,8 +9,8 @@
 class mac_m_tx_agt_top_c extends uvm_env;
   `uvm_component_utils(mac_m_tx_agt_top_c)
 
-  mac_m_tx_agt_c        m_tx_agt_h;
-  mac_m_tx_agt_config_c m_tx_agt_config_h;
+  mac_m_tx_agt_c            m_tx_agt_h;
+  mac_m_tx_agt_config_c     m_tx_agt_config_h;
 
   extern function new(
     string name = "mac_m_tx_agt_top_c",

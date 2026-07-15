@@ -13,7 +13,7 @@ mac_m_rx_xtn_c m_rx_trans;
 
 extern function new(
   string name="mac_rx_cov_c",
-  uvm_component parent =null
+  uvm_component parent = null
 );
 
 extern function void write(mac_m_rx_xtn_c t);

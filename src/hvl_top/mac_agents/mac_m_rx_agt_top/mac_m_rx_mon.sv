@@ -40,6 +40,7 @@ function mac_m_rx_mon_c::new(
   uvm_component parent = null
 );
   super.new(name, parent);
+  item_collect_port = new("item_collect_port",this);
 endfunction
 
 

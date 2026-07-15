@@ -40,6 +40,8 @@ package mac_test_pkg;
   `include "mac_env_config.sv"
   `include "mac_tx_cov.sv"
   `include "mac_rx_cov.sv"
+  `include "mac_tx_ref_model.sv"
+  `include "mac_rx_ref_model.sv"
   `include "mac_sb.sv"
   `include "mac_top.sv"
   `include "mac_virtual_seqr.sv"

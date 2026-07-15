@@ -7,22 +7,18 @@
  * them to enable transaction-level communication.
  */
 class mac_m_rx_agt_c extends uvm_agent;
-
-  /** Register the agent with the UVM factory. */
   `uvm_component_utils(mac_m_rx_agt_c)
 
-  /** Constructor declaration. */
+  mac_m_rx_drv_c m_rx_drv_h;
+  mac_m_rx_mon_c m_rx_mon_h;
+  mac_m_rx_seqr_c m_rx_seqr_h;
   extern function new(
     string name = "mac_m_rx_agt_c",
     uvm_component parent = null
   );
-
-  /** Build phase declaration. */
   extern function void build_phase(
     uvm_phase phase
   );
-
-  /** Connect phase declaration. */
   extern function void connect_phase(
     uvm_phase phase
   );
@@ -58,6 +54,9 @@ function void mac_m_rx_agt_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
+  m_rx_drv_h    =mac_m_rx_drv_c::type_id::create("m_rx_drv_h",this);
+  m_rx_mon_h    =mac_m_rx_mon_c::type_id::create("m_rx_mon_h",this);
+  m_rx_seqr_h   =mac_m_rx_seqr_c::type_id::create("m_rx_seqr_h",this);
 endfunction
 
 
@@ -74,4 +73,5 @@ function void mac_m_rx_agt_c::connect_phase(
   uvm_phase phase
 );
   super.connect_phase(phase);
+  m_rx_drv_h.seq_item_port.connect(m_rx_seqr_h.seq_item_export);
 endfunction
