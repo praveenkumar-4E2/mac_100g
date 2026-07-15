@@ -14,4 +14,4 @@
 ../../src/hvl_top/test/mac_test_pkg.sv
 ../../src/hvl_top/test/mac_vtest_lib.sv
 
-../../src/hvl_top/tb/mac_top.sv
+../../src/hvl_top/tb/mac_tb.sv
