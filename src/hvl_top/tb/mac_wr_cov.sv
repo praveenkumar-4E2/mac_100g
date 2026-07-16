@@ -7,16 +7,16 @@
  *  - Samples functional coverage.
  *  - Tracks protocol coverage.
  */
-class mac_tx_cov_c extends uvm_subscriber #(mac_m_tx_xtn_c);
+class mac_tx_cov_c extends uvm_subscriber #(mac_wr_xtn_c);
 `uvm_component_utils(mac_tx_cov_c)
-mac_m_tx_xtn_c m_tx_trans;
+mac_wr_xtn_c m_tx_trans;
 
   extern function new(
     string name="mac_tx_cov_c",
     uvm_component parent=null
   );
 
-  extern function void write(mac_m_tx_xtn_c t);
+  extern function void write(mac_wr_xtn_c t);
 endclass
 
 /**
@@ -50,7 +50,7 @@ endfunction
  * @return
  * None.
  */
-function void mac_tx_cov_c::write(mac_m_tx_xtn_c t);
+function void mac_tx_cov_c::write(mac_wr_xtn_c t);
 m_tx_trans=t;
 //TODO
 endfunction

@@ -6,14 +6,14 @@
  * transactions are forwarded to components such as the
  * scoreboard and coverage collector for verification.
  */
-class mac_m_tx_mon_c extends uvm_monitor;
-  `uvm_component_utils(mac_m_tx_mon_c)
+class mac_wr_mon_c extends uvm_monitor;
+  `uvm_component_utils(mac_wr_mon_c)
 
-  uvm_analysis_port #(mac_m_tx_xtn_c) item_collect_port;
-  mac_m_tx_xtn_c                      m_tx_xtn_h;
+  uvm_analysis_port #(mac_wr_xtn_c) item_collect_port;
+  mac_wr_xtn_c                      m_tx_xtn_h;
 
   extern function new(
-    string name = "mac_m_tx_mon_c",
+    string name = "mac_wr_mon_c",
     uvm_component parent = null
   );
   extern function void build_phase(
@@ -31,8 +31,8 @@ endclass
  * @param name Name of the monitor component.
  * @param parent Parent component in the UVM hierarchy.
  */
-function mac_m_tx_mon_c::new(
-  string name = "mac_m_tx_mon_c",
+function mac_wr_mon_c::new(
+  string name = "mac_wr_mon_c",
   uvm_component parent = null
 );
   super.new(name,parent);
@@ -48,9 +48,9 @@ endfunction
  *
  * @param phase Current UVM build phase.
  */
-function void mac_m_tx_mon_c::build_phase(
+function void mac_wr_mon_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
-  m_tx_xtn_h = mac_m_tx_xtn_c::type_id::create("m_tx_xtn_h");
+  m_tx_xtn_h = mac_wr_xtn_c::type_id::create("m_tx_xtn_h");
 endfunction

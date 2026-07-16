@@ -6,14 +6,14 @@
  * instances used in the verification environment.
  */
 
-class mac_m_tx_agt_top_c extends uvm_env;
-  `uvm_component_utils(mac_m_tx_agt_top_c)
+class mac_wr_agt_top_c extends uvm_env;
+  `uvm_component_utils(mac_wr_agt_top_c)
 
-  mac_m_tx_agt_c            m_tx_agt_h;
-  mac_m_tx_agt_config_c     m_tx_agt_config_h;
+  mac_wr_agt_c            m_tx_agt_h;
+  mac_wr_agt_config_c     m_tx_agt_config_h;
 
   extern function new(
-    string name = "mac_m_tx_agt_top_c",
+    string name = "mac_wr_agt_top_c",
     uvm_component parent = null
   );
   extern function void build_phase(
@@ -31,8 +31,8 @@ endclass
  * @param name Name of the agent top component.
  * @param parent Parent component in the UVM hierarchy.
  */
-function mac_m_tx_agt_top_c::new(
-  string name = "mac_m_tx_agt_top_c",
+function mac_wr_agt_top_c::new(
+  string name = "mac_wr_agt_top_c",
   uvm_component parent = null
 );
   super.new(name,parent);
@@ -47,10 +47,10 @@ endfunction
  *
  * @param phase Current UVM build phase.
  */
-function void mac_m_tx_agt_top_c::build_phase(
+function void mac_wr_agt_top_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
-  m_tx_agt_config_h = mac_m_tx_agt_config_c::type_id::create("m_tx_agt_config_h");
-  m_tx_agt_h        = mac_m_tx_agt_c::type_id::create( "m_tx_agt_h",this);
+  m_tx_agt_config_h = mac_wr_agt_config_c::type_id::create("m_tx_agt_config_h");
+  m_tx_agt_h        = mac_wr_agt_c::type_id::create( "m_tx_agt_h",this);
 endfunction

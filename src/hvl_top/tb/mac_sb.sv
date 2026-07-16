@@ -13,10 +13,10 @@
 class mac_sb_c extends uvm_scoreboard;
   `uvm_component_utils(mac_sb_c)
 
-  uvm_tlm_analysis_fifo#(mac_m_tx_xtn_c) m_tx_fifo;
-  uvm_tlm_analysis_fifo#(mac_m_tx_xtn_c) s_tx_fifo;
-  uvm_tlm_analysis_fifo#(mac_m_rx_xtn_c) m_rx_fifo;
-  uvm_tlm_analysis_fifo#(mac_m_rx_xtn_c) s_rx_fifo;
+  uvm_tlm_analysis_fifo#(mac_wr_xtn_c) m_tx_fifo;
+  uvm_tlm_analysis_fifo#(mac_wr_xtn_c) s_tx_fifo;
+  uvm_tlm_analysis_fifo#(mac_rd_xtn_c) m_rx_fifo;
+  uvm_tlm_analysis_fifo#(mac_rd_xtn_c) s_rx_fifo;
 
   extern function new(
       string name="mac_sb_c",

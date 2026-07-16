@@ -6,15 +6,15 @@
  * responsible for creating and connecting these components
  * based on the agent configuration.
  */
-class mac_m_tx_agt_c extends uvm_agent;
-  `uvm_component_utils(mac_m_tx_agt_c)
+class mac_wr_agt_c extends uvm_agent;
+  `uvm_component_utils(mac_wr_agt_c)
 
-  mac_m_tx_seqr_c m_tx_seqr_h;
-  mac_m_tx_drv_c  m_tx_drv_h;
-  mac_m_tx_mon_c  m_tx_mon_h;
+  mac_wr_seqr_c m_tx_seqr_h;
+  mac_wr_drv_c  m_tx_drv_h;
+  mac_wr_mon_c  m_tx_mon_h;
 
   extern function new(
-    string name = "mac_m_tx_agt_c",
+    string name = "mac_wr_agt_c",
     uvm_component parent = null
   );
   extern function void build_phase(
@@ -35,8 +35,8 @@ endclass
  * @param name Name of the agent component.
  * @param parent Parent component in the UVM hierarchy.
  */
-function mac_m_tx_agt_c::new(
-  string name = "mac_m_tx_agt_c",
+function mac_wr_agt_c::new(
+  string name = "mac_wr_agt_c",
   uvm_component parent = null
 
 );
@@ -52,13 +52,13 @@ endfunction
  *
  * @param phase Current UVM build phase.
  */
-function void mac_m_tx_agt_c::build_phase(
+function void mac_wr_agt_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
-  m_tx_seqr_h = mac_m_tx_seqr_c::type_id::create("m_tx_seqr_h" ,this);
-  m_tx_drv_h  = mac_m_tx_drv_c::type_id::create("m_tx_drv_h",this);
-  m_tx_mon_h  = mac_m_tx_mon_c::type_id::create("m_tx_mon_h",this);
+  m_tx_seqr_h = mac_wr_seqr_c::type_id::create("m_tx_seqr_h" ,this);
+  m_tx_drv_h  = mac_wr_drv_c::type_id::create("m_tx_drv_h",this);
+  m_tx_mon_h  = mac_wr_mon_c::type_id::create("m_tx_mon_h",this);
 endfunction
 
 /**
@@ -69,7 +69,7 @@ endfunction
  *
  * @param phase Current UVM connect phase.
  */
-function void mac_m_tx_agt_c::connect_phase(
+function void mac_wr_agt_c::connect_phase(
   uvm_phase phase
 );
   m_tx_drv_h.seq_item_port.connect(m_tx_seqr_h.seq_item_export);

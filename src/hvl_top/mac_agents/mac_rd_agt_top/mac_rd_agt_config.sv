@@ -6,11 +6,14 @@
  * centralized mechanism for sharing configuration data
  * throughout the verification environment.
  */
-class mac_m_rx_agt_cfg_c extends uvm_object;
-  `uvm_object_utils(mac_m_rx_agt_cfg_c)
+class mac_rd_agt_cfg_c extends uvm_object;
+  `uvm_object_utils(mac_rd_agt_cfg_c)
+  // Default agent behavior
+  uvm_active_passive_enum is_active = UVM_ACTIVE;
+
 
   extern function new(
-    string name = "mac_m_rx_agt_cfg_c"
+    string name = "mac_rd_agt_cfg_c"
   );
 endclass
 
@@ -21,8 +24,8 @@ endclass
  *
  * @param name Instance name of the configuration object.
  */
-function mac_m_rx_agt_cfg_c::new(
-  string name = "mac_m_rx_agt_cfg_c"
+function mac_rd_agt_cfg_c::new(
+  string name = "mac_rd_agt_cfg_c"
 );
   super.new(name);
 endfunction

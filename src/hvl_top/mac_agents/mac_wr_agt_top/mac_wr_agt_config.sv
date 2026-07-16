@@ -7,13 +7,19 @@
  * protocol-specific parameters, to the agent and its
  * sub-components through the UVM configuration database.
  */
-class mac_m_tx_agt_config_c extends uvm_object;
-  `uvm_object_utils(mac_m_tx_agt_config_c)
+class mac_wr_agt_config_c extends uvm_object;
+  `uvm_object_utils(mac_wr_agt_config_c)
+
+  // Default agent behavior
+  uvm_active_passive_enum is_active = UVM_ACTIVE;
+
+
+
 
   extern function new(
-    string name = "mac_m_tx_agt_config_c"
+    string name = "mac_wr_agt_config_c"
   );
- endclass
+endclass
 
 /**
  * @brief Constructor for the MAC Master TX agent configuration object.
@@ -23,10 +29,9 @@ class mac_m_tx_agt_config_c extends uvm_object;
  *
  * @param name Name of the configuration object.
  */
-function mac_m_tx_agt_config_c::new(
-  string name = "mac_m_tx_agt_config_c"
+function mac_wr_agt_config_c::new(
+  string name = "mac_wr_agt_config_c"
 );
   super.new(name);
 endfunction
-
 

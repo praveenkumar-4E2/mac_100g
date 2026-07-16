@@ -6,11 +6,11 @@
  * required to create and transfer a MAC frame between the
  * sequence, driver, and monitor.
  */
-class mac_m_tx_xtn_c extends uvm_sequence_item;
-  `uvm_object_utils(mac_m_tx_xtn_c)
+class mac_wr_xtn_c extends uvm_sequence_item;
+  `uvm_object_utils(mac_wr_xtn_c)
 
   extern function new(
-    string name = "mac_m_tx_xtn_c"
+    string name = "mac_wr_xtn_c"
   );
 endclass
 
@@ -22,8 +22,8 @@ endclass
  *
  * @param name Name of the transaction object.
  */
-function mac_m_tx_xtn_c::new(
-  string name = "mac_m_tx_xtn_c"
+function mac_wr_xtn_c::new(
+  string name = "mac_wr_xtn_c"
 );
   super.new(name);
 endfunction
