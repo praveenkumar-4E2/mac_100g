@@ -56,17 +56,18 @@ function void mac_rx_agt_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
-  if(!uvm_config_db#(mac_rx_agt_config_c)::get(this,"","rx_agt_config",m_cfg)) begin
+  if(!uvm_config_db#(mac_rx_agt_config_c)::get(this,"","rx_cfg",m_cfg)) begin
     `uvm_fatal(
       "CONFIG_ERROR",
       "uvm_config_db#(mac_rx_agt_config_c)::get cannot find resource mac rx agent config"
     )
   end
-    mon_h      =  mac_rx_mon_c::type_id::create("mon_h",this);
+
   if(m_cfg.is_active == UVM_ACTIVE) begin
     drv_h    =  mac_rx_drv_c::type_id::create("drv_h",this);
     seqr_h   =  mac_rx_seqr_c::type_id::create("seqr_h",this);
   end
+  mon_h      =  mac_rx_mon_c::type_id::create("mon_h",this);
 endfunction
 
 

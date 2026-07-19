@@ -9,8 +9,11 @@
 class mac_tx_agt_top_c extends uvm_env;
   `uvm_component_utils(mac_tx_agt_top_c)
 
-  mac_tx_agt_c             agt_h;
-  mac_tx_agt_config_c      m_cfg;
+  mac_tx_agt_c             active_agts[];
+  mac_tx_agt_c             passive_agts[];
+  mac_env_config_c         m_cfg;
+
+
 
   extern function new(
     string name = "mac_tx_agt_top_c",
@@ -51,10 +54,46 @@ function void mac_tx_agt_top_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
-  if(!uvm_config_db#(mac_tx_agt_config_c)::get(this,"","tx_agt_config",m_cfg))
-  `uvm_fatal(
-    "Config Error",
-    "uvm_config_db#(mac_tx_agt_config_c)::get cannot find resource mac tx agent config"
-  )
-  agt_h     = mac_tx_agt_c::type_id::create( "agt_h",this);
+    if(!uvm_config_db#(mac_env_config_c)::get(this,"","mac_env_cfg",m_cfg)) begin
+    `uvm_fatal(
+      "CONFIG_ERROR",
+      "uvm_config_db#(mac_env_config_c)::get cannot find resource mac env config"
+    )
+  end
+
+
+  active_agts = new[m_cfg.no_of_tx_active_agents];
+  foreach(active_agts[i]) begin
+    if (m_cfg.tx_active_agt_cfg[i] == null) begin
+      `uvm_fatal(
+        "CONFIG_ERROR",
+        "mac_env_config_c::tx_active_agt_cfg contains a null config"
+      )
+    end
+    uvm_config_db#(mac_tx_agt_config_c)::set(
+      this,
+      $sformatf("active_agts[%0d]*", i),
+      "tx_cfg",
+      m_cfg.tx_active_agt_cfg[i]
+    );
+    active_agts[i] = mac_tx_agt_c::type_id::create($sformatf("active_agts[%0d]*",i),this);
+  end
+
+
+  passive_agts = new[m_cfg.no_of_tx_passive_agents];
+  foreach(passive_agts[i]) begin
+    if (m_cfg.tx_passive_agt_cfg[i] == null) begin
+      `uvm_fatal(
+        "CONFIG_ERROR",
+        "mac_env_config_c::tx_passive_agt_cfg contains a null config"
+      )
+    end
+    uvm_config_db#(mac_tx_agt_config_c)::set(
+      this,
+      $sformatf("passive_agts[%0d]*", i),
+      "tx_cfg",
+      m_cfg.tx_passive_agt_cfg[i]
+    );
+    passive_agts[i] = mac_tx_agt_c::type_id::create($sformatf("passive_agts[%0d]*",i),this);
+  end
 endfunction

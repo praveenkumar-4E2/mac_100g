@@ -57,17 +57,18 @@ function void mac_tx_agt_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
- if(!uvm_config_db#(mac_tx_agt_config_c)::get(this,"","tx_agt_config",m_cfg)) begin
+ if(!uvm_config_db#(mac_tx_agt_config_c)::get(this,"","tx_cfg",m_cfg)) begin
     `uvm_fatal(
       "CONFIG_ERROR",
       "uvm_config_db#(mac_tx_agt_config_c)::get cannot find resource mac tx agt config"
     );
  end
-  mon_h  = mac_tx_mon_c::type_id::create("mon_h",this);
   if(m_cfg.is_active == UVM_ACTIVE) begin
     seqr_h = mac_tx_seqr_c::type_id::create("seqr_h" ,this);
     drv_h  = mac_tx_drv_c::type_id::create("drv_h",this);
   end
+  mon_h  = mac_tx_mon_c::type_id::create("mon_h",this);
+
 endfunction
 
 /**
