@@ -13,10 +13,10 @@
 class mac_sb_c extends uvm_scoreboard;
   `uvm_component_utils(mac_sb_c)
 
-  uvm_tlm_analysis_fifo#(mac_tx_xtn_c) m_tx_fifo;
-  uvm_tlm_analysis_fifo#(mac_tx_xtn_c) s_tx_fifo;
-  uvm_tlm_analysis_fifo#(mac_rx_xtn_c) m_rx_fifo;
-  uvm_tlm_analysis_fifo#(mac_rx_xtn_c) s_rx_fifo;
+  uvm_tlm_analysis_fifo#(mac_tx_xtn_c) tx_fifo;
+  uvm_tlm_analysis_fifo#(mac_rx_xtn_c) rx_fifo;
+  uvm_tlm_analysis_fifo#(mac_rx_xtn_c) rx_ref_fifo;
+  uvm_tlm_analysis_fifo#(mac_tx_xtn_c) tx_ref_fifo;
 
   extern function new(
       string name="mac_sb_c",
@@ -46,10 +46,10 @@ function mac_sb_c::new(
     uvm_component parent=null
 );
   super.new(name,parent);
-  m_tx_fifo = new("m_tx_fifo",this);
-  s_tx_fifo = new("s_tx_fifo",this);
-  m_rx_fifo = new("m_rx_fifo",this);
-  s_rx_fifo = new("s_rx_fifo",this);
+  tx_fifo = new("tx_fifo",this);
+  rx_fifo = new("rx_fifo",this);
+  tx_ref_fifo = new("tx_ref_fifo",this);
+  rx_ref_fifo = new("rx_ref_fifo",this);
 endfunction
 
 /**
