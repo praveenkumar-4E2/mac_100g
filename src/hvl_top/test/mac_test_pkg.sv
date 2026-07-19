@@ -6,6 +6,8 @@ package mac_test_pkg;
   `include "mac_if.sv"
 
   `include "mac_rx_agt_config.sv"
+  `include "mac_tx_agt_config.sv"
+  `include "mac_env_config.sv"
   `include "mac_rx_xtn.sv"
   `include "mac_rx_seqr.sv"
   `include "mac_rx_seq.sv"
@@ -14,7 +16,7 @@ package mac_test_pkg;
   `include "mac_rx_agt.sv"
   `include "mac_rx_agt_top.sv"
 
-  `include "mac_tx_agt_config.sv"
+
   `include "mac_tx_xtn.sv"
   `include "mac_tx_seqr.sv"
   `include "mac_tx_seq.sv"
@@ -29,7 +31,7 @@ package mac_test_pkg;
   `include "mac_rst_agt.sv"
   `include "mac_rst_agt_top.sv"
 
-  `include "mac_env_config.sv"
+
   `include "mac_cov.sv"
   `include "mac_ref_model.sv"
   `include "mac_sb.sv"

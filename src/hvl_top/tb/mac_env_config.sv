@@ -11,11 +11,19 @@ bit has_ragent =1;
 
 bit has_virtual_sequencer = 1;
 
-mac_tx_agt_config_c m_tx_agent_cfg[];
-mac_rx_agt_config_c m_rx_agent_cfg[];
+mac_tx_agt_config_c tx_active_agt_cfg[];
+mac_tx_agt_config_c tx_passive_agt_cfg[];
 
-int no_of_wr_agents =1;
-int no_of_rd_agents =1;
+mac_rx_agt_config_c rx_active_agt_cfg[];
+mac_rx_agt_config_c rx_passive_agt_cfg[];
+
+
+int no_of_tx_active_agents =1;
+int no_of_tx_passive_agents =1;
+
+int no_of_rx_active_agents =1;
+int no_of_rx_passive_agents =1;
+
 int no_of_duts = 1;
 static int mon_rcvd_xtn_cnt=0;
 
