@@ -6,14 +6,16 @@
  * responsible for building these components and connecting
  * them to enable transaction-level communication.
  */
-class mac_rd_agt_c extends uvm_agent;
-  `uvm_component_utils(mac_rd_agt_c)
+class mac_rx_agt_c extends uvm_agent;
+  `uvm_component_utils(mac_rx_agt_c)
 
-  mac_rd_drv_c m_rx_drv_h;
-  mac_rd_mon_c m_rx_mon_h;
-  mac_rd_seqr_c m_rx_seqr_h;
+  mac_rx_drv_c        drv_h;
+  mac_rx_mon_c        mon_h;
+  mac_rx_seqr_c       seqr_h;
+  mac_rx_agt_config_c m_cfg;
+
   extern function new(
-    string name = "mac_rd_agt_c",
+    string name = "mac_rx_agt_c",
     uvm_component parent = null
   );
   extern function void build_phase(
@@ -34,8 +36,8 @@ endclass
  * @param name   Instance name of the agent.
  * @param parent Parent UVM component.
  */
-function mac_rd_agt_c::new(
-  string name = "mac_rd_agt_c",
+function mac_rx_agt_c::new(
+  string name = "mac_rx_agt_c",
   uvm_component parent = null
 );
   super.new(name, parent);
@@ -50,13 +52,21 @@ endfunction
  *
  * @param phase Current UVM phase.
  */
-function void mac_rd_agt_c::build_phase(
+function void mac_rx_agt_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
-  m_rx_drv_h    =mac_rd_drv_c::type_id::create("m_rx_drv_h",this);
-  m_rx_mon_h    =mac_rd_mon_c::type_id::create("m_rx_mon_h",this);
-  m_rx_seqr_h   =mac_rd_seqr_c::type_id::create("m_rx_seqr_h",this);
+  if(!uvm_config_db#(mac_rx_agt_config_c)::get(this,"","rx_agt_config",m_cfg)) begin
+    `uvm_fatal(
+      "CONFIG_ERROR",
+      "uvm_config_db#(mac_rx_agt_config_c)::get cannot find resource mac rx agent config"
+    )
+  end
+    mon_h      =  mac_rx_mon_c::type_id::create("mon_h",this);
+  if(m_cfg.is_active == UVM_ACTIVE) begin
+    drv_h    =  mac_rx_drv_c::type_id::create("drv_h",this);
+    seqr_h   =  mac_rx_seqr_c::type_id::create("seqr_h",this);
+  end
 endfunction
 
 
@@ -69,9 +79,11 @@ endfunction
  *
  * @param phase Current UVM phase.
  */
-function void mac_rd_agt_c::connect_phase(
+function void mac_rx_agt_c::connect_phase(
   uvm_phase phase
 );
   super.connect_phase(phase);
-  m_rx_drv_h.seq_item_port.connect(m_rx_seqr_h.seq_item_export);
+  if(m_cfg.is_active == UVM_ACTIVE)begin
+    drv_h.seq_item_port.connect(seqr_h.seq_item_export);
+  end
 endfunction

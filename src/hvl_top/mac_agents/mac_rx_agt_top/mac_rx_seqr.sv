@@ -6,14 +6,14 @@
  * sequences, arbitrates them if required, and forwards the
  * selected transaction to the driver for execution.
  */
-class mac_rd_seqr_c extends uvm_sequencer #(mac_rd_xtn_c);
+class mac_rx_seqr_c extends uvm_sequencer #(mac_rx_xtn_c);
 
   /** Register the sequencer with the UVM factory. */
-  `uvm_component_utils(mac_rd_seqr_c)
+  `uvm_component_utils(mac_rx_seqr_c)
 
   /** Constructor declaration. */
   extern function new(
-    string name = "mac_rd_seqr_c",
+    string name = "mac_rx_seqr_c",
     uvm_component parent = null
   );
 
@@ -32,8 +32,8 @@ endclass
  * @param name   Instance name of the sequencer.
  * @param parent Parent UVM component.
  */
-function mac_rd_seqr_c::new(
-  string name = "mac_rd_seqr_c",
+function mac_rx_seqr_c::new(
+  string name = "mac_rx_seqr_c",
   uvm_component parent = null
 );
   super.new(name, parent);
@@ -48,7 +48,7 @@ endfunction
  *
  * @param phase Current UVM phase.
  */
-function void mac_rd_seqr_c::build_phase(
+function void mac_rx_seqr_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);

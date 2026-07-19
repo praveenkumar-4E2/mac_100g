@@ -5,11 +5,11 @@
  * them onto the DUT transmit interface. The driver is primarily
  * active during the run_phase.
  */
-class mac_wr_drv_c extends uvm_driver #(mac_wr_xtn_c);
-  `uvm_component_utils(mac_wr_drv_c)
+class mac_tx_drv_c extends uvm_driver #(mac_tx_xtn_c);
+  `uvm_component_utils(mac_tx_drv_c)
 
   extern function new(
-    string name = "mac_wr_drv_c",
+    string name = "mac_tx_drv_c",
     uvm_component parent = null
   );
   
@@ -27,8 +27,8 @@ endclass
  * @param name Name of the driver component.
  * @param parent Parent component in the UVM hierarchy.
  */
-function mac_wr_drv_c::new(
-  string name = "mac_wr_drv_c",
+function mac_tx_drv_c::new(
+  string name = "mac_tx_drv_c",
   uvm_component parent = null
 );
   super.new(name,parent);
@@ -43,7 +43,7 @@ endfunction
  *
  * @param phase Current UVM build phase.
  */
-function void mac_wr_drv_c::build_phase(
+function void mac_tx_drv_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);

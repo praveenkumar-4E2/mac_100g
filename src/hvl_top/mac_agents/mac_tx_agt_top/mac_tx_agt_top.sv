@@ -6,14 +6,14 @@
  * instances used in the verification environment.
  */
 
-class mac_wr_agt_top_c extends uvm_env;
-  `uvm_component_utils(mac_wr_agt_top_c)
+class mac_tx_agt_top_c extends uvm_env;
+  `uvm_component_utils(mac_tx_agt_top_c)
 
-  mac_wr_agt_c            m_tx_agt_h;
-  mac_wr_agt_config_c     m_tx_agt_config_h;
+  mac_tx_agt_c             agt_h;
+  mac_tx_agt_config_c      m_cfg;
 
   extern function new(
-    string name = "mac_wr_agt_top_c",
+    string name = "mac_tx_agt_top_c",
     uvm_component parent = null
   );
   extern function void build_phase(
@@ -31,8 +31,8 @@ endclass
  * @param name Name of the agent top component.
  * @param parent Parent component in the UVM hierarchy.
  */
-function mac_wr_agt_top_c::new(
-  string name = "mac_wr_agt_top_c",
+function mac_tx_agt_top_c::new(
+  string        name   = "mac_tx_agt_top_c",
   uvm_component parent = null
 );
   super.new(name,parent);
@@ -47,10 +47,14 @@ endfunction
  *
  * @param phase Current UVM build phase.
  */
-function void mac_wr_agt_top_c::build_phase(
+function void mac_tx_agt_top_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
-  m_tx_agt_config_h = mac_wr_agt_config_c::type_id::create("m_tx_agt_config_h");
-  m_tx_agt_h        = mac_wr_agt_c::type_id::create( "m_tx_agt_h",this);
+  if(!uvm_config_db#(mac_tx_agt_config_c)::get(this,"","tx_agt_config",m_cfg))
+  `uvm_fatal(
+    "Config Error",
+    "uvm_config_db#(mac_tx_agt_config_c)::get cannot find resource mac tx agent config"
+  )
+  agt_h     = mac_tx_agt_c::type_id::create( "agt_h",this);
 endfunction

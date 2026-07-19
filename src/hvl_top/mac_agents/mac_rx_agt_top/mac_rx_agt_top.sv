@@ -6,12 +6,14 @@
  * integration point for the agent hierarchy and performs
  * environment-level configuration during simulation.
  */
-class mac_rd_agt_top_c extends uvm_env;
-  `uvm_component_utils(mac_rd_agt_top_c)
+class mac_rx_agt_top_c extends uvm_env;
+  `uvm_component_utils(mac_rx_agt_top_c)
 
-  mac_rd_agt_c m_rx_agt_h;
+  mac_rx_agt_c        agt_h;
+  mac_rx_agt_config_c m_cfg;
+
   extern function new(
-    string name = "mac_rd_agt_top_c",
+    string name = "mac_rx_agt_top_c",
     uvm_component parent = null
   );
 
@@ -31,8 +33,8 @@ endclass
  * @param name   Instance name of the environment.
  * @param parent Parent UVM component.
  */
-function mac_rd_agt_top_c::new(
-  string name = "mac_rd_agt_top_c",
+function mac_rx_agt_top_c::new(
+  string name = "mac_rx_agt_top_c",
   uvm_component parent = null
 );
   super.new(name, parent);
@@ -47,9 +49,15 @@ endfunction
  *
  * @param phase Current UVM phase.
  */
-function void mac_rd_agt_top_c::build_phase(
+function void mac_rx_agt_top_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
-  m_rx_agt_h = mac_rd_agt_c::type_id::create("m_rx_agt_h",this);
+  if(!uvm_config_db#(mac_rx_agt_config_c)::get(this,"","rx_agt_config",m_cfg)) begin
+    `uvm_fatal(
+      "CONFIG_ERROR",
+      "uvm_config_db#(mac_rx_agt_config_c)::get cannot find resource mac rx agent config"
+    )
+  end
+  agt_h = mac_rx_agt_c::type_id::create("agt_h",this);
 endfunction

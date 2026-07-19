@@ -20,7 +20,7 @@ VCOVER = vcover
 ## Override any of these from the command line, e.g.:
 ##   make run TOP=other_top FILELIST=other.f
 WORK      = work
-TOP       = mac_tb
+TOP       = mac_top
 OPT_TOP   = $(TOP)_opt
 FILELIST  = mac_compile.f
 

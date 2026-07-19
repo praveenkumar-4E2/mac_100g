@@ -6,15 +6,16 @@
  * responsible for creating and connecting these components
  * based on the agent configuration.
  */
-class mac_wr_agt_c extends uvm_agent;
-  `uvm_component_utils(mac_wr_agt_c)
+class mac_tx_agt_c extends uvm_agent;
+  `uvm_component_utils(mac_tx_agt_c)
 
-  mac_wr_seqr_c m_tx_seqr_h;
-  mac_wr_drv_c  m_tx_drv_h;
-  mac_wr_mon_c  m_tx_mon_h;
+  mac_tx_seqr_c       seqr_h;
+  mac_tx_drv_c        drv_h;
+  mac_tx_mon_c        mon_h;
+  mac_tx_agt_config_c m_cfg;
 
   extern function new(
-    string name = "mac_wr_agt_c",
+    string name = "mac_tx_agt_c",
     uvm_component parent = null
   );
   extern function void build_phase(
@@ -35,8 +36,8 @@ endclass
  * @param name Name of the agent component.
  * @param parent Parent component in the UVM hierarchy.
  */
-function mac_wr_agt_c::new(
-  string name = "mac_wr_agt_c",
+function mac_tx_agt_c::new(
+  string name = "mac_tx_agt_c",
   uvm_component parent = null
 
 );
@@ -52,13 +53,21 @@ endfunction
  *
  * @param phase Current UVM build phase.
  */
-function void mac_wr_agt_c::build_phase(
+function void mac_tx_agt_c::build_phase(
   uvm_phase phase
 );
   super.build_phase(phase);
-  m_tx_seqr_h = mac_wr_seqr_c::type_id::create("m_tx_seqr_h" ,this);
-  m_tx_drv_h  = mac_wr_drv_c::type_id::create("m_tx_drv_h",this);
-  m_tx_mon_h  = mac_wr_mon_c::type_id::create("m_tx_mon_h",this);
+ if(!uvm_config_db#(mac_tx_agt_config_c)::get(this,"","tx_agt_config",m_cfg)) begin
+    `uvm_fatal(
+      "CONFIG_ERROR",
+      "uvm_config_db#(mac_tx_agt_config_c)::get cannot find resource mac tx agt config"
+    );
+ end
+  mon_h  = mac_tx_mon_c::type_id::create("mon_h",this);
+  if(m_cfg.is_active == UVM_ACTIVE) begin
+    seqr_h = mac_tx_seqr_c::type_id::create("seqr_h" ,this);
+    drv_h  = mac_tx_drv_c::type_id::create("drv_h",this);
+  end
 endfunction
 
 /**
@@ -69,8 +78,10 @@ endfunction
  *
  * @param phase Current UVM connect phase.
  */
-function void mac_wr_agt_c::connect_phase(
+function void mac_tx_agt_c::connect_phase(
   uvm_phase phase
 );
-  m_tx_drv_h.seq_item_port.connect(m_tx_seqr_h.seq_item_export);
+if(m_cfg.is_active == UVM_ACTIVE) begin
+  drv_h.seq_item_port.connect(seqr_h.seq_item_export);
+end
 endfunction
