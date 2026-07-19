@@ -1,0 +1,245 @@
+# do run.do
+# 
+# if {[file exists work]} {
+#   vdel -lib work -all
+# }
+# ** Warning: (vdel-134) Unable to remove locked optimized design "_opt".  Locker is Lava Kumar@DESKTOP-CJB1O0Q.
+# 
+# vlib work
+# ** Warning: (vlib-34) Library already exists at "work".
+# Errors: 0, Warnings: 1
+# vmap work work
+# QuestaSim-64 vmap 2024.1 Lib Mapping Utility 2024.02 Feb  1 2024
+# vmap work work 
+# Modifying modelsim.ini
+# 
+# vlog -sv -f mac_compile.f
+# QuestaSim-64 vlog 2024.1 Compiler 2024.02 Feb  1 2024
+# Start time: 23:45:20 on Jul 19,2026
+# vlog -sv -f mac_compile.f 
+# -- Compiling package mac_test_pkg
+# ** Note: (vlog-2286) ../../src/hvl_top/test/mac_test_pkg.sv(2): Using implicit +incdir+C:/questasim64_2024.1/uvm-1.1d/../verilog_src/uvm-1.1d/src from import uvm_pkg
+# -- Importing package mtiUvm.uvm_pkg (uvm-1.1d Built-in)
+# -- Compiling module mac_top
+# -- Importing package mac_test_pkg
+# 
+# Top level modules:
+# 	mac_top
+# End time: 23:45:21 on Jul 19,2026, Elapsed time: 0:00:01
+# Errors: 0, Warnings: 0
+# 
+# vsim -voptargs=+acc work.mac_top +UVM_TESTNAME=mac_base_test_c +UVM_VERBOSITY=UVM_MEDIUM -sv_seed random
+# vsim -voptargs="+acc" work.mac_top "+UVM_TESTNAME=mac_base_test_c" "+UVM_VERBOSITY=UVM_MEDIUM" -sv_seed random 
+# Start time: 23:45:22 on Jul 19,2026
+# ** Note: (vsim-3812) Design is being optimized...
+# ** Warning: (vopt-10587) Some optimizations are turned off because the +acc switch is in effect. This will cause your simulation to run slowly. Please use -access/-debug to maintain needed visibility.
+# Support of the MGLS_LICENSE_FILE and LM_LICENSE_FILE licensing environment variables will be discontinued starting with the 2025.1 release. Please update to using the SALT_LICENSE_SERVER variable.
+# Please contact Siemens EDA Customer Support (https://support.sw.siemens.com/) for assistance.
+# ** Note: (vsim-12126) Error and warning message counts have been restored: Errors=0, Warnings=1.
+# //  Questa Sim-64
+# //  Version 2024.1 win64 Feb  1 2024
+# //
+# // Unpublished work. Copyright 2024 Siemens
+# //
+# // This material contains trade secrets or otherwise confidential information
+# // owned by Siemens Industry Software Inc. or its affiliates (collectively,
+# // "SISW"), or its licensors. Access to and use of this information is strictly
+# // limited as set forth in the Customer's applicable agreements with SISW.
+# //
+# // This material may not be copied, distributed, or otherwise disclosed outside
+# // of the Customer's facilities without the express written permission of SISW,
+# // and may not be used in any way not expressly authorized by SISW.
+# //
+# Loading sv_std.std
+# Loading mtiUvm.uvm_pkg(fast)
+# Loading work.mac_test_pkg(fast)
+# Loading mtiUvm.questa_uvm_pkg(fast)
+# Loading work.mac_top(fast)
+# Loading C:/questasim64_2024.1/uvm-1.1d\win64\uvm_dpi.dll
+# Sv_Seed = 276994465
+# 
+# run -all
+# ----------------------------------------------------------------
+# UVM-1.1d
+# (C) 2007-2013 Mentor Graphics Corporation
+# (C) 2007-2013 Cadence Design Systems, Inc.
+# (C) 2006-2013 Synopsys, Inc.
+# (C) 2011-2013 Cypress Semiconductor Corp.
+# ----------------------------------------------------------------
+# 
+#   ***********       IMPORTANT RELEASE NOTES         ************
+# 
+#   You are using a version of the UVM library that has been compiled
+#   with `UVM_NO_DEPRECATED undefined.
+#   See http://www.eda.org/svdb/view.php?id=3313 for more details.
+# 
+#   You are using a version of the UVM library that has been compiled
+#   with `UVM_OBJECT_MUST_HAVE_CONSTRUCTOR undefined.
+#   See http://www.eda.org/svdb/view.php?id=3770 for more details.
+# 
+#       (Specify +UVM_NO_RELNOTES to turn off this notice)
+# 
+# UVM_INFO verilog_src/questa_uvm_pkg-1.2/src/questa_uvm_pkg.sv(277) @ 0: reporter [Questa UVM] QUESTA_UVM-1.2.3
+# UVM_INFO verilog_src/questa_uvm_pkg-1.2/src/questa_uvm_pkg.sv(278) @ 0: reporter [Questa UVM]  questa_uvm::init(+struct)
+# UVM_INFO @ 0: reporter [RNTST] Running test mac_base_test_c...
+# UVM_INFO ../../src/hvl_top/test/mac_vtest_lib.sv(51) @ 0: uvm_test_top [TEST] Printing topology
+# UVM_INFO @ 0: reporter [UVMTOP] UVM testbench topology:
+# --------------------------------------------------------------------
+# Name                         Type                        Size  Value
+# --------------------------------------------------------------------
+# uvm_test_top                 mac_base_test_c             -     @469 
+#   env_h                      mac_env_c                   -     @493 
+#     coverage_h               mac_coverage_c              -     @748 
+#       rx_observed_imp        uvm_analysis_imp_rx_cov     -     @763 
+#       tx_observed_imp        uvm_analysis_imp_tx_cov     -     @755 
+#     reference_model_h        mac_reference_model_c       -     @709 
+#       rx_expected_port       uvm_analysis_port           -     @724 
+#       rx_observed_imp        uvm_analysis_imp_rx         -     @740 
+#       tx_expected_port       uvm_analysis_port           -     @716 
+#       tx_observed_imp        uvm_analysis_imp_tx         -     @732 
+#     rx_agent_top_h           mac_rx_agent_top_c          -     @507 
+#       active_agents[0]*      mac_rx_agent_c              -     @777 
+#         driver_h             mac_rx_driver_c             -     @826 
+#           rsp_port           uvm_analysis_port           -     @841 
+#           seq_item_port      uvm_seq_item_pull_port      -     @833 
+#         monitor_h            mac_rx_monitor_c            -     @958 
+#           analysis_port      uvm_analysis_port           -     @965 
+#         sequencer_h          mac_rx_sequencer_c          -     @849 
+#           rsp_export         uvm_analysis_export         -     @856 
+#           seq_item_export    uvm_seq_item_pull_imp       -     @950 
+#           arbitration_queue  array                       0     -    
+#           lock_queue         array                       0     -    
+#           num_last_reqs      integral                    32    'd1  
+#           num_last_rsps      integral                    32    'd1  
+#       active_agents[1]*      mac_rx_agent_c              -     @785 
+#         driver_h             mac_rx_driver_c             -     @980 
+#           rsp_port           uvm_analysis_port           -     @995 
+#           seq_item_port      uvm_seq_item_pull_port      -     @987 
+#         monitor_h            mac_rx_monitor_c            -     @1112
+#           analysis_port      uvm_analysis_port           -     @1119
+#         sequencer_h          mac_rx_sequencer_c          -     @1003
+#           rsp_export         uvm_analysis_export         -     @1010
+#           seq_item_export    uvm_seq_item_pull_imp       -     @1104
+#           arbitration_queue  array                       0     -    
+#           lock_queue         array                       0     -    
+#           num_last_reqs      integral                    32    'd1  
+#           num_last_rsps      integral                    32    'd1  
+#       active_agents[2]*      mac_rx_agent_c              -     @793 
+#         driver_h             mac_rx_driver_c             -     @1134
+#           rsp_port           uvm_analysis_port           -     @1149
+#           seq_item_port      uvm_seq_item_pull_port      -     @1141
+#         monitor_h            mac_rx_monitor_c            -     @1266
+#           analysis_port      uvm_analysis_port           -     @1273
+#         sequencer_h          mac_rx_sequencer_c          -     @1157
+#           rsp_export         uvm_analysis_export         -     @1164
+#           seq_item_export    uvm_seq_item_pull_imp       -     @1258
+#           arbitration_queue  array                       0     -    
+#           lock_queue         array                       0     -    
+#           num_last_reqs      integral                    32    'd1  
+#           num_last_rsps      integral                    32    'd1  
+#       passive_agents[0]*     mac_rx_agent_c              -     @801 
+#         monitor_h            mac_rx_monitor_c            -     @1288
+#           analysis_port      uvm_analysis_port           -     @1295
+#       passive_agents[1]*     mac_rx_agent_c              -     @809 
+#         monitor_h            mac_rx_monitor_c            -     @1305
+#           analysis_port      uvm_analysis_port           -     @1312
+#       passive_agents[2]*     mac_rx_agent_c              -     @817 
+#         monitor_h            mac_rx_monitor_c            -     @1322
+#           analysis_port      uvm_analysis_port           -     @1329
+#     scoreboard_h             mac_scoreboard_c            -     @514 
+#       rx_actual_fifo         uvm_tlm_analysis_fifo #(T)  -     @568 
+#         analysis_export      uvm_analysis_imp            -     @607 
+#         get_ap               uvm_analysis_port           -     @599 
+#         get_peek_export      uvm_get_peek_imp            -     @583 
+#         put_ap               uvm_analysis_port           -     @591 
+#         put_export           uvm_put_imp                 -     @575 
+#       rx_expected_fifo       uvm_tlm_analysis_fifo #(T)  -     @662 
+#         analysis_export      uvm_analysis_imp            -     @701 
+#         get_ap               uvm_analysis_port           -     @693 
+#         get_peek_export      uvm_get_peek_imp            -     @677 
+#         put_ap               uvm_analysis_port           -     @685 
+#         put_export           uvm_put_imp                 -     @669 
+#       tx_actual_fifo         uvm_tlm_analysis_fifo #(T)  -     @521 
+#         analysis_export      uvm_analysis_imp            -     @560 
+#         get_ap               uvm_analysis_port           -     @552 
+#         get_peek_export      uvm_get_peek_imp            -     @536 
+#         put_ap               uvm_analysis_port           -     @544 
+#         put_export           uvm_put_imp                 -     @528 
+#       tx_expected_fifo       uvm_tlm_analysis_fifo #(T)  -     @615 
+#         analysis_export      uvm_analysis_imp            -     @654 
+#         get_ap               uvm_analysis_port           -     @646 
+#         get_peek_export      uvm_get_peek_imp            -     @630 
+#         put_ap               uvm_analysis_port           -     @638 
+#         put_export           uvm_put_imp                 -     @622 
+#     tx_agent_top_h           mac_tx_agent_top_c          -     @500 
+#       active_agents[0]*      mac_tx_agent_c              -     @1342
+#         driver_h             mac_tx_driver_c             -     @1500
+#           rsp_port           uvm_analysis_port           -     @1515
+#           seq_item_port      uvm_seq_item_pull_port      -     @1507
+#         monitor_h            mac_tx_monitor_c            -     @1523
+#           analysis_port      uvm_analysis_port           -     @1530
+#         sequencer_h          mac_tx_sequencer_c          -     @1391
+#           rsp_export         uvm_analysis_export         -     @1398
+#           seq_item_export    uvm_seq_item_pull_imp       -     @1492
+#           arbitration_queue  array                       0     -    
+#           lock_queue         array                       0     -    
+#           num_last_reqs      integral                    32    'd1  
+#           num_last_rsps      integral                    32    'd1  
+#       active_agents[1]*      mac_tx_agent_c              -     @1350
+#         driver_h             mac_tx_driver_c             -     @1658
+#           rsp_port           uvm_analysis_port           -     @1673
+#           seq_item_port      uvm_seq_item_pull_port      -     @1665
+#         monitor_h            mac_tx_monitor_c            -     @1681
+#           analysis_port      uvm_analysis_port           -     @1688
+#         sequencer_h          mac_tx_sequencer_c          -     @1549
+#           rsp_export         uvm_analysis_export         -     @1556
+#           seq_item_export    uvm_seq_item_pull_imp       -     @1650
+#           arbitration_queue  array                       0     -    
+#           lock_queue         array                       0     -    
+#           num_last_reqs      integral                    32    'd1  
+#           num_last_rsps      integral                    32    'd1  
+#       active_agents[2]*      mac_tx_agent_c              -     @1358
+#         driver_h             mac_tx_driver_c             -     @1816
+#           rsp_port           uvm_analysis_port           -     @1831
+#           seq_item_port      uvm_seq_item_pull_port      -     @1823
+#         monitor_h            mac_tx_monitor_c            -     @1839
+#           analysis_port      uvm_analysis_port           -     @1846
+#         sequencer_h          mac_tx_sequencer_c          -     @1707
+#           rsp_export         uvm_analysis_export         -     @1714
+#           seq_item_export    uvm_seq_item_pull_imp       -     @1808
+#           arbitration_queue  array                       0     -    
+#           lock_queue         array                       0     -    
+#           num_last_reqs      integral                    32    'd1  
+#           num_last_rsps      integral                    32    'd1  
+#       passive_agents[0]*     mac_tx_agent_c              -     @1366
+#         monitor_h            mac_tx_monitor_c            -     @1865
+#           analysis_port      uvm_analysis_port           -     @1872
+#       passive_agents[1]*     mac_tx_agent_c              -     @1374
+#         monitor_h            mac_tx_monitor_c            -     @1886
+#           analysis_port      uvm_analysis_port           -     @1893
+#       passive_agents[2]*     mac_tx_agent_c              -     @1382
+#         monitor_h            mac_tx_monitor_c            -     @1907
+#           analysis_port      uvm_analysis_port           -     @1914
+# --------------------------------------------------------------------
+# 
+# UVM_INFO ../../src/hvl_top/test/mac_vtest_lib.sv(57) @ 0: uvm_test_top [TEST] Reached run_phase
+# UVM_INFO ../../src/hvl_top/test/mac_vtest_lib.sv(60) @ 0: uvm_test_top [TEST] Reached end_of_run_phase
+# UVM_INFO verilog_src/uvm-1.1d/src/base/uvm_objection.svh(1267) @ 0: reporter [TEST_DONE] 'run' phase is ready to proceed to the 'extract' phase
+# 
+# --- UVM Report Summary ---
+# 
+# ** Report counts by severity
+# UVM_INFO :    8
+# UVM_WARNING :    0
+# UVM_ERROR :    0
+# UVM_FATAL :    0
+# ** Report counts by id
+# [Questa UVM]     2
+# [RNTST]     1
+# [TEST]     3
+# [TEST_DONE]     1
+# [UVMTOP]     1
+# ** Note: $finish    : C:/questasim64_2024.1/win64/../verilog_src/uvm-1.1d/src/base/uvm_root.svh(430)
+#    Time: 0 ns  Iteration: 216  Instance: /mac_top
+# End time: 23:45:35 on Jul 19,2026, Elapsed time: 0:00:13
+# Errors: 0, Warnings: 1

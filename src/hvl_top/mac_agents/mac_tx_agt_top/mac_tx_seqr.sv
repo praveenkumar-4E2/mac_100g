@@ -5,13 +5,10 @@
  * the TX driver. It receives sequence items from the active
  * sequence and forwards them to the driver for execution.
  */
-class mac_tx_seqr_c extends uvm_sequencer#(mac_tx_xtn_c);
-  `uvm_component_utils(mac_tx_seqr_c)
-  
-  extern function new(
-    string name = "mac_tx_seqr_c",
-    uvm_component parent = null
-  );
+class mac_tx_sequencer_c extends uvm_sequencer #(mac_tx_item_c);
+  `uvm_component_utils(mac_tx_sequencer_c)
+
+  extern function new(string name = "mac_tx_sequencer_c", uvm_component parent = null);
 endclass
 
 /**
@@ -23,11 +20,8 @@ endclass
  * @param name Name of the sequencer component.
  * @param parent Parent component in the UVM hierarchy.
  */
-function mac_tx_seqr_c::new(
-  string name = "mac_tx_seqr_c",
-  uvm_component parent = null
-);
-  super.new(name,parent);
+function mac_tx_sequencer_c::new(string name = "mac_tx_sequencer_c", uvm_component parent = null);
+  super.new(name, parent);
 endfunction
 
 

@@ -6,13 +6,13 @@
  * sequencer forwards these transactions to the driver, which
  * drives the corresponding signal-level activity on the DUT.
  */
-class mac_rx_seq_c extends uvm_sequence #(mac_rx_xtn_c);
+class mac_rx_sequence_c extends uvm_sequence #(mac_rx_item_c);
 
   /** Register the sequence with the UVM factory. */
-  `uvm_object_utils(mac_rx_seq_c)
+  `uvm_object_utils(mac_rx_sequence_c)
 
   /** Constructor declaration. */
-  extern function new(string name = "mac_rx_seq_c");
+  extern function new(string name = "mac_rx_sequence_c");
 endclass
 
 
@@ -24,8 +24,6 @@ endclass
  *
  * @param name Instance name of the sequence.
  */
-function mac_rx_seq_c::new(
-  string name = "mac_rx_seq_c"
-);
+function mac_rx_sequence_c::new(string name = "mac_rx_sequence_c");
   super.new(name);
 endfunction

@@ -5,17 +5,12 @@
  * them onto the DUT transmit interface. The driver is primarily
  * active during the run_phase.
  */
-class mac_tx_drv_c extends uvm_driver #(mac_tx_xtn_c);
-  `uvm_component_utils(mac_tx_drv_c)
+class mac_tx_driver_c extends uvm_driver #(mac_tx_item_c);
+  `uvm_component_utils(mac_tx_driver_c)
 
-  extern function new(
-    string name = "mac_tx_drv_c",
-    uvm_component parent = null
-  );
-  
-  extern function void build_phase(
-    uvm_phase phase
-  );
+  extern function new(string name = "mac_tx_driver_c", uvm_component parent = null);
+
+  extern function void build_phase(uvm_phase phase);
 endclass
 
 /**
@@ -27,11 +22,8 @@ endclass
  * @param name Name of the driver component.
  * @param parent Parent component in the UVM hierarchy.
  */
-function mac_tx_drv_c::new(
-  string name = "mac_tx_drv_c",
-  uvm_component parent = null
-);
-  super.new(name,parent);
+function mac_tx_driver_c::new(string name = "mac_tx_driver_c", uvm_component parent = null);
+  super.new(name, parent);
 endfunction
 
 /**
@@ -43,8 +35,6 @@ endfunction
  *
  * @param phase Current UVM build phase.
  */
-function void mac_tx_drv_c::build_phase(
-  uvm_phase phase
-);
+function void mac_tx_driver_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
 endfunction

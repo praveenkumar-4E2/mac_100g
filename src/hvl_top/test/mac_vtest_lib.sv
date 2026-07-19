@@ -1,51 +1,51 @@
-class mac_base_test extends uvm_test;
-  `uvm_component_utils(mac_base_test)
+class mac_base_test_c extends uvm_test;
+  `uvm_component_utils(mac_base_test_c)
 
-  mac_tb_c            top_env_h;
-  mac_env_config_c    env_config;
-  mac_rx_agt_config_c rx_agt_active_configs [];
-  mac_rx_agt_config_c rx_agt_passive_configs[];
-  mac_tx_agt_config_c tx_agt_active_configs [];
-  mac_tx_agt_config_c tx_agt_passive_configs[];
+  mac_env_c            env_h;
+  mac_env_cfg_c    env_cfg_h;
+  mac_rx_agent_cfg_c rx_active_agent_cfgs [];
+  mac_rx_agent_cfg_c rx_passive_agent_cfgs[];
+  mac_tx_agent_cfg_c tx_active_agent_cfgs [];
+  mac_tx_agent_cfg_c tx_passive_agent_cfgs[];
 
-  int                 num_of_tx_active_agt      = 3;
-  int                 num_of_rx_active_agt      = 3;
-  int                 num_of_tx_passive_agt     = 3;
-  int                 num_of_rx_passive_agt     = 3;
+  int                 num_tx_active_agents      = 3;
+  int                 num_rx_active_agents      = 3;
+  int                 num_tx_passive_agents     = 3;
+  int                 num_rx_passive_agents     = 3;
 
 
-  extern function new(string name = "mac_base_test", uvm_component parent = null);
+  extern function new(string name = "mac_base_test_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
   extern function void end_of_elaboration_phase(uvm_phase phase);
   extern task run_phase(uvm_phase phase);
-  extern function void set_mac_config();
+  extern function void set_env_config();
 endclass
 
-function mac_base_test::new(string name = "mac_base_test", uvm_component parent = null);
+function mac_base_test_c::new(string name = "mac_base_test_c", uvm_component parent = null);
   super.new(name, parent);
 endfunction
 
-function void mac_base_test::build_phase(uvm_phase phase);
+function void mac_base_test_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
 
-  env_config                          = mac_env_config_c::type_id::create("env_config", this);
-  env_config.tx_active_agt_cfg        = new[num_of_tx_active_agt];
-  env_config.tx_passive_agt_cfg       = new[num_of_tx_passive_agt];
-  env_config.rx_active_agt_cfg        = new[num_of_rx_active_agt];
-  env_config.rx_passive_agt_cfg       = new[num_of_rx_passive_agt];
+  env_cfg_h                        = mac_env_cfg_c::type_id::create("env_cfg_h", this);
+  env_cfg_h.tx_active_agent_cfgs   = new[num_tx_active_agents];
+  env_cfg_h.tx_passive_agent_cfgs  = new[num_tx_passive_agents];
+  env_cfg_h.rx_active_agent_cfgs   = new[num_rx_active_agents];
+  env_cfg_h.rx_passive_agent_cfgs  = new[num_rx_passive_agents];
 
-  env_config.no_of_tx_active_agents   = num_of_tx_active_agt;
-  env_config.no_of_tx_passive_agents  = num_of_tx_passive_agt;
-  env_config.no_of_rx_active_agents   = num_of_rx_active_agt;
-  env_config.no_of_rx_passive_agents  = num_of_rx_passive_agt;
+  env_cfg_h.num_tx_active_agents   = num_tx_active_agents;
+  env_cfg_h.num_tx_passive_agents  = num_tx_passive_agents;
+  env_cfg_h.num_rx_active_agents   = num_rx_active_agents;
+  env_cfg_h.num_rx_passive_agents  = num_rx_passive_agents;
 
-  set_mac_config();
-  uvm_config_db#(mac_env_config_c)::set(null, "*", "mac_env_cfg", env_config);
-  top_env_h = mac_tb_c::type_id::create("top_env_h", this);
+  set_env_config();
+  uvm_config_db#(mac_env_cfg_c)::set(null, "*", "mac_env_cfg", env_cfg_h);
+  env_h = mac_env_c::type_id::create("env_h", this);
 
 endfunction
 
-function void mac_base_test::end_of_elaboration_phase(uvm_phase phase);
+function void mac_base_test_c::end_of_elaboration_phase(uvm_phase phase);
   super.end_of_elaboration_phase(phase);
 
   `uvm_info("TEST", "Printing topology", UVM_NONE)
@@ -53,7 +53,7 @@ function void mac_base_test::end_of_elaboration_phase(uvm_phase phase);
   uvm_top.print_topology();
 endfunction
 
-task mac_base_test::run_phase(uvm_phase phase);
+task mac_base_test_c::run_phase(uvm_phase phase);
   `uvm_info("TEST", "Reached run_phase", UVM_NONE)
   phase.raise_objection(this);
   phase.drop_objection(this);
@@ -61,42 +61,42 @@ task mac_base_test::run_phase(uvm_phase phase);
 endtask
 
 
-function void mac_base_test::set_mac_config();
-  if (num_of_tx_active_agt) begin
-    tx_agt_active_configs = new[num_of_tx_active_agt];
-    foreach (tx_agt_active_configs[i]) begin
-      tx_agt_active_configs[i] =
-          mac_tx_agt_config_c::type_id::create($sformatf("tx_active_cfg[%0d]", i));
-      tx_agt_active_configs[i].is_active = UVM_ACTIVE;
-      env_config.tx_active_agt_cfg[i] = tx_agt_active_configs[i];
+function void mac_base_test_c::set_env_config();
+  if (num_tx_active_agents) begin
+    tx_active_agent_cfgs = new[num_tx_active_agents];
+    foreach (tx_active_agent_cfgs[i]) begin
+      tx_active_agent_cfgs[i] =
+          mac_tx_agent_cfg_c::type_id::create($sformatf("tx_active_cfg[%0d]", i));
+      tx_active_agent_cfgs[i].is_active = UVM_ACTIVE;
+      env_cfg_h.tx_active_agent_cfgs[i] = tx_active_agent_cfgs[i];
     end
   end
-  if (num_of_tx_passive_agt) begin
-    tx_agt_passive_configs = new[num_of_tx_passive_agt];
-    foreach (tx_agt_passive_configs[i]) begin
-      tx_agt_passive_configs[i] =
-          mac_tx_agt_config_c::type_id::create($sformatf("tx_passive_cfg[%0d]", i));
-      tx_agt_passive_configs[i].is_active = UVM_PASSIVE;
-      env_config.tx_passive_agt_cfg[i] = tx_agt_passive_configs[i];
+  if (num_tx_passive_agents) begin
+    tx_passive_agent_cfgs = new[num_tx_passive_agents];
+    foreach (tx_passive_agent_cfgs[i]) begin
+      tx_passive_agent_cfgs[i] =
+          mac_tx_agent_cfg_c::type_id::create($sformatf("tx_passive_cfg[%0d]", i));
+      tx_passive_agent_cfgs[i].is_active = UVM_PASSIVE;
+      env_cfg_h.tx_passive_agent_cfgs[i] = tx_passive_agent_cfgs[i];
     end
 
   end
-  if (num_of_rx_active_agt) begin
-    rx_agt_active_configs = new[num_of_rx_active_agt];
-    foreach (rx_agt_active_configs[i]) begin
-      rx_agt_active_configs[i] =
-          mac_rx_agt_config_c::type_id::create($sformatf("rx_active_cfg[%0d]", i));
-      rx_agt_active_configs[i].is_active = UVM_ACTIVE;
-      env_config.rx_active_agt_cfg[i] = rx_agt_active_configs[i];
+  if (num_rx_active_agents) begin
+    rx_active_agent_cfgs = new[num_rx_active_agents];
+    foreach (rx_active_agent_cfgs[i]) begin
+      rx_active_agent_cfgs[i] =
+          mac_rx_agent_cfg_c::type_id::create($sformatf("rx_active_cfg[%0d]", i));
+      rx_active_agent_cfgs[i].is_active = UVM_ACTIVE;
+      env_cfg_h.rx_active_agent_cfgs[i] = rx_active_agent_cfgs[i];
     end
   end
-  if (num_of_rx_passive_agt) begin
-    rx_agt_passive_configs = new[num_of_rx_passive_agt];
-    foreach (rx_agt_passive_configs[i]) begin
-      rx_agt_passive_configs[i] =
-          mac_rx_agt_config_c::type_id::create($sformatf("rx_passive_cfg[%0d]", i));
-      rx_agt_passive_configs[i].is_active = UVM_PASSIVE;
-      env_config.rx_passive_agt_cfg[i] = rx_agt_passive_configs[i];
+  if (num_rx_passive_agents) begin
+    rx_passive_agent_cfgs = new[num_rx_passive_agents];
+    foreach (rx_passive_agent_cfgs[i]) begin
+      rx_passive_agent_cfgs[i] =
+          mac_rx_agent_cfg_c::type_id::create($sformatf("rx_passive_cfg[%0d]", i));
+      rx_passive_agent_cfgs[i].is_active = UVM_PASSIVE;
+      env_cfg_h.rx_passive_agent_cfgs[i] = rx_passive_agent_cfgs[i];
     end
   end
 endfunction

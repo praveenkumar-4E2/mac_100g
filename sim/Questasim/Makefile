@@ -32,7 +32,7 @@ VSIM_OPTS = -voptargs=+acc
 ## Override per run, e.g.:
 ##   make run TEST=mac_smoke_test VERBOSITY=UVM_HIGH SEED=12345
 ifndef TEST
-override TEST = mac_base_test
+override TEST = mac_base_test_c
 endif
 
 ifndef VERBOSITY

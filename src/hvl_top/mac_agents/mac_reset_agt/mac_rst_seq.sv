@@ -3,10 +3,10 @@
  *        Generates reset-related sequence items to control and
  *        verify the DUT reset behavior during simulation.
  */
-class mac_rst_seq_c extends uvm_sequence #(uvm_sequence_item);
-  `uvm_object_utils(mac_rst_seq_c)
+class mac_reset_sequence_c extends uvm_sequence #(uvm_sequence_item);
+  `uvm_object_utils(mac_reset_sequence_c)
 
-  extern function new(string name = "mac_rst_seq_c");
+  extern function new(string name = "mac_reset_sequence_c");
   extern task body();
 
 endclass
@@ -15,8 +15,7 @@ endclass
  * @brief Constructor for the reset sequence.
  * @param name Name of the sequence instance.
  */
-function mac_rst_seq_c::new(
-  string name = "mac_rst_seq_c");
+function mac_reset_sequence_c::new(string name = "mac_reset_sequence_c");
   super.new(name);
 endfunction
 
@@ -25,5 +24,5 @@ endfunction
  *        Creates, randomizes, and issues reset sequence
  *        items to the reset driver.
  */
-task mac_rst_seq_c::body();
+task mac_reset_sequence_c::body();
 endtask

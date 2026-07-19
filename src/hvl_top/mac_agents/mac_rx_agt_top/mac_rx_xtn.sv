@@ -4,12 +4,12 @@
  * This class is used to model the transaction exchanged between
  * the sequence, driver, and monitor in the MAC RX agent.
  */
-class mac_rx_xtn_c extends uvm_sequence_item;
+class mac_rx_item_c extends uvm_sequence_item;
 
   /** Register the transaction with the UVM factory. */
-  `uvm_object_utils(mac_rx_xtn_c)
+  `uvm_object_utils(mac_rx_item_c)
 
-  extern function new(string name = "mac_rx_xtn_c");
+  extern function new(string name = "mac_rx_item_c");
 endclass
 
 
@@ -20,8 +20,6 @@ endclass
  *
  * @param name Instance name of the transaction.
  */
-function mac_rx_xtn_c ::new(
-  string name = "mac_rx_xtn_c"
-);
+function mac_rx_item_c::new(string name = "mac_rx_item_c");
   super.new(name);
 endfunction

@@ -1,66 +1,70 @@
 
-class mac_tb_c extends uvm_env;
-  `uvm_component_utils(mac_tb_c)
+class mac_env_c extends uvm_env;
+  `uvm_component_utils(mac_env_c)
 
-  mac_tx_agt_top_c tx_agt_top_h;
-  mac_rx_agt_top_c rx_agt_top_h;
-  mac_sb_c         sb_h;
-  mac_ref_model_c  ref_model_h;
-  mac_cov_c        cov_h;
-  mac_env_config_c m_cfg;
+  mac_tx_agent_top_c    tx_agent_top_h;
+  mac_rx_agent_top_c    rx_agent_top_h;
+  mac_scoreboard_c      scoreboard_h;
+  mac_reference_model_c reference_model_h;
+  mac_coverage_c        coverage_h;
+  mac_env_cfg_c         cfg_h;
 
 
-  extern function new(string name = "mac_tb_c", uvm_component parent = null);
+  extern function new(string name = "mac_env_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
   extern function void connect_phase(uvm_phase phase);
 endclass
 
-function mac_tb_c::new(string name = "mac_tb_c", uvm_component parent = null);
+function mac_env_c::new(string name = "mac_env_c", uvm_component parent = null);
   super.new(name, parent);
 endfunction
 
-function void mac_tb_c::build_phase(uvm_phase phase);
+function void mac_env_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
-  tx_agt_top_h = mac_tx_agt_top_c::type_id::create("tx_agt_top_h", this);
-  rx_agt_top_h = mac_rx_agt_top_c::type_id::create("rx_agt_top_h", this);
-  sb_h         = mac_sb_c::type_id::create("sb_h", this);
-  ref_model_h  = mac_ref_model_c::type_id::create("ref_model_h", this);
-  cov_h        = mac_cov_c::type_id::create("cov_h", this);
+  tx_agent_top_h    = mac_tx_agent_top_c::type_id::create("tx_agent_top_h", this);
+  rx_agent_top_h    = mac_rx_agent_top_c::type_id::create("rx_agent_top_h", this);
+  scoreboard_h      = mac_scoreboard_c::type_id::create("scoreboard_h", this);
+  reference_model_h = mac_reference_model_c::type_id::create("reference_model_h", this);
+  coverage_h        = mac_coverage_c::type_id::create("coverage_h", this);
   //mac_env_cfg
-  if (!uvm_config_db#(mac_env_config_c)::get(this, "", "mac_env_cfg", m_cfg)) begin
+  if (!uvm_config_db#(mac_env_cfg_c)::get(this, "", "mac_env_cfg", cfg_h)) begin
     `uvm_fatal("CONFIG_ERROR",
-               "uvm_config_db#(mac_env_config_c)::get cannot find resource mac env config")
+               "uvm_config_db#(mac_env_cfg_c)::get cannot find resource mac env config")
   end
 endfunction
 
-function void mac_tb_c::connect_phase(uvm_phase phase);
+function void mac_env_c::connect_phase(uvm_phase phase);
   super.connect_phase(phase);
 
-  foreach (tx_agt_top_h.active_agts[i]) begin
-    //tx_agt_top_h.active_agts[i].mon_h.item_collect_port.connect(sb_h.tx_fifo.analysis_export);
-    tx_agt_top_h.active_agts[i].mon_h.item_collect_port.connect(ref_model_h.tx_fifo);
-    tx_agt_top_h.active_agts[i].mon_h.item_collect_port.connect(cov_h.analysis_export);
+  foreach (tx_agent_top_h.active_agents[i]) begin
+    //tx_agent_top_h.active_agents[i].monitor_h.analysis_port.connect(scoreboard_h.tx_actual_fifo.analysis_export);
+    tx_agent_top_h.active_agents[i].monitor_h.analysis_port.connect(
+        reference_model_h.tx_observed_imp);
+    tx_agent_top_h.active_agents[i].monitor_h.analysis_port.connect(coverage_h.tx_observed_imp);
   end
 
-  foreach (tx_agt_top_h.passive_agts[i]) begin
-    tx_agt_top_h.passive_agts[i].mon_h.item_collect_port.connect(sb_h.tx_fifo.analysis_export);
-    //tx_agt_top_h.passive_agts[i].mon_h.item_collect_port.connect(ref_model_h.tx_fifo);
-    //tx_agt_top_h.passive_agts[i].mon_h.item_collect_port.connect(cov_h.analysis_export);
+  foreach (tx_agent_top_h.passive_agents[i]) begin
+    tx_agent_top_h.passive_agents[i].monitor_h.analysis_port.connect(
+        scoreboard_h.tx_actual_fifo.analysis_export);
+    //tx_agent_top_h.passive_agents[i].monitor_h.analysis_port.connect(reference_model_h.tx_observed_imp);
+    //tx_agent_top_h.passive_agents[i].monitor_h.analysis_port.connect(coverage_h.analysis_export);
   end
 
-  foreach (rx_agt_top_h.active_agts[i]) begin
-    //rx_agt_top_h.active_agts[i].mon_h.item_collect_port.connect(sb_h.rx_fifo.analysis_export);
-    rx_agt_top_h.active_agts[i].mon_h.item_collect_port.connect(ref_model_h.rx_fifo);
-    //rx_agt_top_h.active_agts[i].mon_h.item_collect_port.connect(cov_h.analysis_export);
+  foreach (rx_agent_top_h.active_agents[i]) begin
+    //rx_agent_top_h.active_agents[i].monitor_h.analysis_port.connect(scoreboard_h.rx_actual_fifo.analysis_export);
+    rx_agent_top_h.active_agents[i].monitor_h.analysis_port.connect(
+        reference_model_h.rx_observed_imp);
+    rx_agent_top_h.active_agents[i].monitor_h.analysis_port.connect(coverage_h.rx_observed_imp);
 
   end
 
-  foreach (rx_agt_top_h.passive_agts[i]) begin
-    rx_agt_top_h.passive_agts[i].mon_h.item_collect_port.connect(sb_h.rx_fifo.analysis_export);
-    //rx_agt_top_h.passive_agts[i].mon_h.item_collect_port.connect(ref_model_h.rx_fifo);
+  foreach (rx_agent_top_h.passive_agents[i]) begin
+    rx_agent_top_h.passive_agents[i].monitor_h.analysis_port.connect(
+        scoreboard_h.rx_actual_fifo.analysis_export);
+    //rx_agent_top_h.passive_agents[i].monitor_h.analysis_port.connect(reference_model_h.rx_observed_imp);
   end
 
-  ref_model_h.tx_item_collect_port.connect(sb_h.tx_ref_fifo.analysis_export);
-  ref_model_h.rx_item_collect_port.connect(sb_h.rx_ref_fifo.analysis_export);
+  reference_model_h.tx_expected_port.connect(scoreboard_h.tx_expected_fifo.analysis_export);
+  reference_model_h.rx_expected_port.connect(scoreboard_h.rx_expected_fifo.analysis_export);
 
 endfunction

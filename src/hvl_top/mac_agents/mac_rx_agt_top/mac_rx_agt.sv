@@ -6,24 +6,17 @@
  * responsible for building these components and connecting
  * them to enable transaction-level communication.
  */
-class mac_rx_agt_c extends uvm_agent;
-  `uvm_component_utils(mac_rx_agt_c)
+class mac_rx_agent_c extends uvm_agent;
+  `uvm_component_utils(mac_rx_agent_c)
 
-  mac_rx_drv_c        drv_h;
-  mac_rx_mon_c        mon_h;
-  mac_rx_seqr_c       seqr_h;
-  mac_rx_agt_config_c m_cfg;
+  mac_rx_driver_c    driver_h;
+  mac_rx_monitor_c   monitor_h;
+  mac_rx_sequencer_c sequencer_h;
+  mac_rx_agent_cfg_c cfg_h;
 
-  extern function new(
-    string name = "mac_rx_agt_c",
-    uvm_component parent = null
-  );
-  extern function void build_phase(
-    uvm_phase phase
-  );
-  extern function void connect_phase(
-    uvm_phase phase
-  );
+  extern function new(string name = "mac_rx_agent_c", uvm_component parent = null);
+  extern function void build_phase(uvm_phase phase);
+  extern function void connect_phase(uvm_phase phase);
 endclass
 
 
@@ -36,10 +29,7 @@ endclass
  * @param name   Instance name of the agent.
  * @param parent Parent UVM component.
  */
-function mac_rx_agt_c::new(
-  string name = "mac_rx_agt_c",
-  uvm_component parent = null
-);
+function mac_rx_agent_c::new(string name = "mac_rx_agent_c", uvm_component parent = null);
   super.new(name, parent);
 endfunction
 
@@ -52,22 +42,18 @@ endfunction
  *
  * @param phase Current UVM phase.
  */
-function void mac_rx_agt_c::build_phase(
-  uvm_phase phase
-);
+function void mac_rx_agent_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
-  if(!uvm_config_db#(mac_rx_agt_config_c)::get(this,"","rx_cfg",m_cfg)) begin
-    `uvm_fatal(
-      "CONFIG_ERROR",
-      "uvm_config_db#(mac_rx_agt_config_c)::get cannot find resource mac rx agent config"
-    )
+  if (!uvm_config_db#(mac_rx_agent_cfg_c)::get(this, "", "rx_agent_cfg", cfg_h)) begin
+    `uvm_fatal("CONFIG_ERROR",
+               "uvm_config_db#(mac_rx_agent_cfg_c)::get cannot find resource mac rx agent config")
   end
 
-  if(m_cfg.is_active == UVM_ACTIVE) begin
-    drv_h    =  mac_rx_drv_c::type_id::create("drv_h",this);
-    seqr_h   =  mac_rx_seqr_c::type_id::create("seqr_h",this);
+  if (cfg_h.is_active == UVM_ACTIVE) begin
+    driver_h    =  mac_rx_driver_c::type_id::create("driver_h",this);
+    sequencer_h   =  mac_rx_sequencer_c::type_id::create("sequencer_h",this);
   end
-  mon_h      =  mac_rx_mon_c::type_id::create("mon_h",this);
+  monitor_h = mac_rx_monitor_c::type_id::create("monitor_h", this);
 endfunction
 
 
@@ -80,11 +66,9 @@ endfunction
  *
  * @param phase Current UVM phase.
  */
-function void mac_rx_agt_c::connect_phase(
-  uvm_phase phase
-);
+function void mac_rx_agent_c::connect_phase(uvm_phase phase);
   super.connect_phase(phase);
-  if(m_cfg.is_active == UVM_ACTIVE)begin
-    drv_h.seq_item_port.connect(seqr_h.seq_item_export);
+  if (cfg_h.is_active == UVM_ACTIVE) begin
+    driver_h.seq_item_port.connect(sequencer_h.seq_item_export);
   end
 endfunction

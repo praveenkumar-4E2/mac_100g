@@ -6,22 +6,17 @@
  * integration point for the agent hierarchy and performs
  * environment-level configuration during simulation.
  */
-class mac_rx_agt_top_c extends uvm_env;
-  `uvm_component_utils(mac_rx_agt_top_c)
+class mac_rx_agent_top_c extends uvm_env;
+  `uvm_component_utils(mac_rx_agent_top_c)
 
-  mac_rx_agt_c        active_agts[];
-  mac_rx_agt_c        passive_agts[];
-  mac_env_config_c    m_cfg;
+  mac_rx_agent_c active_agents [];
+  mac_rx_agent_c passive_agents[];
+  mac_env_cfg_c  cfg_h;
 
 
-  extern function new(
-    string name = "mac_rx_agt_top_c",
-    uvm_component parent = null
-  );
+  extern function new(string name = "mac_rx_agent_top_c", uvm_component parent = null);
 
-  extern function void build_phase(
-    uvm_phase phase
-  );
+  extern function void build_phase(uvm_phase phase);
 
 endclass
 
@@ -35,10 +30,7 @@ endclass
  * @param name   Instance name of the environment.
  * @param parent Parent UVM component.
  */
-function mac_rx_agt_top_c::new(
-  string name = "mac_rx_agt_top_c",
-  uvm_component parent = null
-);
+function mac_rx_agent_top_c::new(string name = "mac_rx_agent_top_c", uvm_component parent = null);
   super.new(name, parent);
 endfunction
 
@@ -51,50 +43,32 @@ endfunction
  *
  * @param phase Current UVM phase.
  */
-function void mac_rx_agt_top_c::build_phase(
-  uvm_phase phase
-);
+function void mac_rx_agent_top_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
-  if(!uvm_config_db#(mac_env_config_c)::get(this,"","mac_env_cfg",m_cfg)) begin
-    `uvm_fatal(
-      "CONFIG_ERROR",
-      "uvm_config_db#(mac_env_config_c)::get cannot find resource mac env config"
-    )
+  if (!uvm_config_db#(mac_env_cfg_c)::get(this, "", "mac_env_cfg", cfg_h)) begin
+    `uvm_fatal("CONFIG_ERROR",
+               "uvm_config_db#(mac_env_cfg_c)::get cannot find resource mac env config")
   end
 
 
-  active_agts = new[m_cfg.no_of_rx_active_agents];
-  foreach(active_agts[i]) begin
-    if (m_cfg.rx_active_agt_cfg[i] == null) begin
-      `uvm_fatal(
-        "CONFIG_ERROR",
-        "mac_env_config_c::rx_active_agt_cfg contains a null config"
-      )
+  active_agents = new[cfg_h.num_rx_active_agents];
+  foreach (active_agents[i]) begin
+    if (cfg_h.rx_active_agent_cfgs[i] == null) begin
+      `uvm_fatal("CONFIG_ERROR", "mac_env_cfg_c::rx_active_agent_cfgs contains a null config")
     end
-    uvm_config_db#(mac_rx_agt_config_c)::set(
-      this,
-      $sformatf("active_agts[%0d]*", i),
-      "rx_cfg",
-      m_cfg.rx_active_agt_cfg[i]
-    );
-    active_agts[i] = mac_rx_agt_c::type_id::create($sformatf("active_agts[%0d]*",i),this);
+    uvm_config_db#(mac_rx_agent_cfg_c)::set(this, $sformatf("active_agents[%0d]*", i),
+                                            "rx_agent_cfg", cfg_h.rx_active_agent_cfgs[i]);
+    active_agents[i] = mac_rx_agent_c::type_id::create($sformatf("active_agents[%0d]*", i), this);
   end
 
 
-  passive_agts = new[m_cfg.no_of_rx_passive_agents];
-  foreach(passive_agts[i]) begin
-    if (m_cfg.rx_passive_agt_cfg[i] == null) begin
-      `uvm_fatal(
-        "CONFIG_ERROR",
-        "mac_env_config_c::rx_passive_agt_cfg contains a null config"
-      )
+  passive_agents = new[cfg_h.num_rx_passive_agents];
+  foreach (passive_agents[i]) begin
+    if (cfg_h.rx_passive_agent_cfgs[i] == null) begin
+      `uvm_fatal("CONFIG_ERROR", "mac_env_cfg_c::rx_passive_agent_cfgs contains a null config")
     end
-    uvm_config_db#(mac_rx_agt_config_c)::set(
-      this,
-      $sformatf("passive_agts[%0d]*", i),
-      "rx_cfg",
-      m_cfg.rx_passive_agt_cfg[i]
-    );
-    passive_agts[i] = mac_rx_agt_c::type_id::create($sformatf("passive_agts[%0d]*",i),this);
+    uvm_config_db#(mac_rx_agent_cfg_c)::set(this, $sformatf("passive_agents[%0d]*", i),
+                                            "rx_agent_cfg", cfg_h.rx_passive_agent_cfgs[i]);
+    passive_agents[i] = mac_rx_agent_c::type_id::create($sformatf("passive_agents[%0d]*", i), this);
   end
 endfunction

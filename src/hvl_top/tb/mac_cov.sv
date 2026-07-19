@@ -1,22 +1,19 @@
-/**
- * @brief
- * Ethernet MAC TX Coverage Subscriber.
- *
- * Responsibilities:
- *  - Receives transactions from the TX monitor.
- *  - Samples functional coverage.
- *  - Tracks protocol coverage.
- */
-class mac_cov_c extends uvm_subscriber #(mac_tx_xtn_c);
-`uvm_component_utils(mac_cov_c)
-mac_tx_xtn_c m_tx_trans;
+`uvm_analysis_imp_decl(_tx_cov)
+`uvm_analysis_imp_decl(_rx_cov)
 
-  extern function new(
-    string name="mac_cov_c",
-    uvm_component parent=null
-  );
 
-  extern function void write(mac_tx_xtn_c t);
+class mac_coverage_c extends uvm_component;
+  `uvm_component_utils(mac_coverage_c)
+
+  mac_tx_item_c tx_item_h;
+  uvm_analysis_imp_tx_cov #(mac_tx_item_c, mac_coverage_c) tx_observed_imp;
+  uvm_analysis_imp_rx_cov #(mac_rx_item_c, mac_coverage_c) rx_observed_imp;
+
+  extern function new(string name = "mac_coverage_c", uvm_component parent = null);
+
+
+  extern function void write_tx_cov(mac_tx_item_c m_tx_xtn);
+  extern function void write_rx_cov(mac_rx_item_c m_rx_xtn);
 endclass
 
 /**
@@ -32,27 +29,22 @@ endclass
  * @return
  * None.
  */
-function mac_cov_c::new(
-  string name="mac_cov_c",
-  uvm_component parent = null
- );
-super.new(name,parent);
+function mac_coverage_c::new(string name = "mac_coverage_c", uvm_component parent = null);
+  super.new(name, parent);
+  tx_observed_imp = new("tx_observed_imp", this);
+  rx_observed_imp = new("rx_observed_imp", this);
 endfunction
 
-/**
- * @brief
- * Receives a TX transaction and stores it for functional
- * coverage collection.
- *
- * @param t
- * TX transaction received from the monitor.
- *
- * @return
- * None.
- */
-function void mac_cov_c::write(mac_tx_xtn_c t);
-m_tx_trans=t;
-//TODO
+
+
+function void mac_coverage_c::write_tx_cov(mac_tx_item_c m_tx_xtn);
+  //TODO
+  tx_observed_imp.write(m_tx_xtn);
 endfunction
 
-  
+function void mac_coverage_c::write_rx_cov(mac_rx_item_c m_rx_xtn);
+  //TODO
+  rx_observed_imp.write(m_rx_xtn);
+endfunction
+
+

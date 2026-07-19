@@ -6,21 +6,16 @@
  * drives the corresponding interface signals according to the
  * MAC RX protocol timing requirements.
  */
-class mac_rx_drv_c extends uvm_driver #(mac_rx_xtn_c);
+class mac_rx_driver_c extends uvm_driver #(mac_rx_item_c);
 
   /** Register the driver with the UVM factory. */
-  `uvm_component_utils(mac_rx_drv_c)
+  `uvm_component_utils(mac_rx_driver_c)
 
   /** Constructor declaration. */
-  extern function new(
-    string name = "mac_rx_drv_c",
-    uvm_component parent = null
-  );
+  extern function new(string name = "mac_rx_driver_c", uvm_component parent = null);
 
   /** Build phase declaration. */
-  extern function void build_phase(
-    uvm_phase phase
-  );
+  extern function void build_phase(uvm_phase phase);
 endclass
 
 
@@ -33,10 +28,7 @@ endclass
  * @param name   Instance name of the driver.
  * @param parent Parent UVM component.
  */
-function mac_rx_drv_c::new(
-  string name = "mac_rx_drv_c",
-  uvm_component parent = null
-);
+function mac_rx_driver_c::new(string name = "mac_rx_driver_c", uvm_component parent = null);
   super.new(name, parent);
 endfunction
 
@@ -49,8 +41,6 @@ endfunction
  *
  * @param phase Current UVM phase.
  */
-function void mac_rx_drv_c::build_phase(
-  uvm_phase phase
-);
+function void mac_rx_driver_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
 endfunction

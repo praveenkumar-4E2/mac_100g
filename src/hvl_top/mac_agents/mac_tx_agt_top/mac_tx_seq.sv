@@ -5,14 +5,12 @@
  * master TX sequencer. This sequence creates the transaction
  * object and defines the stimulus to be driven by the driver.
  */
-class mac_tx_seq_c extends uvm_sequence #(mac_tx_xtn_c);
-  `uvm_object_utils(mac_tx_seq_c)
+class mac_tx_sequence_c extends uvm_sequence #(mac_tx_item_c);
+  `uvm_object_utils(mac_tx_sequence_c)
 
-   mac_tx_xtn_c tx_xtn_h;
+  mac_tx_item_c tx_item_h;
 
-  extern function new(
-    string name = "mac_tx_seq_c"
-  );
+  extern function new(string name = "mac_tx_sequence_c");
   extern task body();
 endclass
 
@@ -24,9 +22,7 @@ endclass
  *
  * @param name Name of the sequence object.
  */
-function mac_tx_seq_c::new(
-  string name = "mac_tx_seq_c"
-);
+function mac_tx_sequence_c::new(string name = "mac_tx_sequence_c");
   super.new(name);
 endfunction
 
@@ -37,7 +33,7 @@ endfunction
  * factory. Additional randomization and transaction
  * execution can be added here.
  */
-task mac_tx_seq_c::body();
-  tx_xtn_h = mac_tx_xtn_c::type_id::create("tx_xtn_h");
+task mac_tx_sequence_c::body();
+  tx_item_h = mac_tx_item_c::type_id::create("tx_item_h");
 endtask
 
