@@ -151,10 +151,17 @@ task axi_driver_c::drive_frame(axi_item_c item);
   end
 
   cfg_h.drv_data_sent_cnt++;
-  `uvm_info(get_type_name(),
-            $sformatf("drv sent frame: %s beats=%0d bytes=%0d",
-                      item.convert2string(), beats, frame_size),
-            UVM_HIGH)
+  if (cfg_h.enable_logger) begin
+    `uvm_info(get_type_name(),
+              $sformatf("drv sent frame: %s beats=%0d bytes=%0d",
+                        item.convert2string(), beats, frame_size),
+              UVM_MEDIUM)
+  end else begin
+    `uvm_info(get_type_name(),
+              $sformatf("drv sent frame: %s beats=%0d bytes=%0d",
+                        item.convert2string(), beats, frame_size),
+              UVM_HIGH)
+  end
 endtask
 
 /**
@@ -175,6 +182,14 @@ task axi_driver_c::send_beat(logic [511:0] tdata, logic [63:0] tkeep,
   vif.tkeep  <= tkeep;
   vif.tlast  <= tlast;
   vif.tuser  <= tuser;
+  // Optional self-generated backpressure for agent-only harnesses:
+  // hold tready low for a random number of cycles before the
+  // handshake. Only valid when the TB does not drive tready.
+  if (cfg_h.generate_backpressure) begin
+    vif.tready <= 1'b0;
+    repeat ($urandom_range(cfg_h.tready_stall_max)) @(posedge vif.clk);
+    vif.tready <= 1'b1;
+  end
   do begin
     @(posedge vif.clk);
   end while (!vif.tready);
