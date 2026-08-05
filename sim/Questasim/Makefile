@@ -20,11 +20,11 @@ VCOVER = vcover
 ## Override any of these from the command line, e.g.:
 ##   make run TOP=other_top FILELIST=other.f
 WORK      = work
-TOP       = mac_top
+TOP       = mac_tb_top
 OPT_TOP   = $(TOP)_opt
 FILELIST  = mac_compile.f
 
-VLOG_OPTS = -sv +acc
+VLOG_OPTS = -sv +acc -suppress 2892
 VOPT_OPTS = +acc
 VSIM_OPTS = -voptargs=+acc
 
@@ -147,7 +147,7 @@ lib:
 ## No waveform/coverage overhead - use this while writing/debugging code.
 check: lib
 	@echo ">> Quick compile check (no simulation, no waveform, no coverage)";
-	$(VLOG) -sv -f $(FILELIST)
+	$(VLOG) -sv -suppress 2892 -f $(FILELIST)
 	@echo ">> Compile check PASSED - no errors.";
 
 ## Full compile without optimization
