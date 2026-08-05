@@ -154,10 +154,17 @@ function void axi_monitor_c::collect_item(byte unsigned frame_q[$], bit [7:0] tu
   axi_item_h.alignment_error = 1'b0;
 
   cfg_h.mon_rcvd_xtn_cnt++;
-  `uvm_info(get_type_name(),
-            $sformatf("mon observed frame: %s nbytes=%0d",
-                      axi_item_h.convert2string(), nbytes),
-            UVM_HIGH)
+  if (cfg_h.enable_logger) begin
+    `uvm_info(get_type_name(),
+              $sformatf("mon observed frame: %s nbytes=%0d",
+                        axi_item_h.convert2string(), nbytes),
+              UVM_MEDIUM)
+  end else begin
+    `uvm_info(get_type_name(),
+              $sformatf("mon observed frame: %s nbytes=%0d",
+                        axi_item_h.convert2string(), nbytes),
+              UVM_HIGH)
+  end
 
   analysis_port.write(axi_item_h);
 endfunction
