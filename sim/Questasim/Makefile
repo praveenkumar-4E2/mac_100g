@@ -23,6 +23,7 @@ WORK      = work
 TOP       = mac_tb_top
 OPT_TOP   = $(TOP)_opt
 FILELIST  = mac_compile.f
+WAVE_DO   = mac_waves.do
 
 VLOG_OPTS = -sv +acc -suppress 2892
 VOPT_OPTS = +acc
@@ -182,14 +183,14 @@ gui: compile
 	mkdir -p $(RUN_DIR)
 	$(VSIM) $(VSIM_OPTS) $(WORK).$(TOP) \
 	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) -sv_seed $(SEED) \
-	  -l $(RUN_LOG)
+	  -l $(RUN_LOG) -do "do $(WAVE_DO)"
 
 ## Interactive GUI, optimized
 gui_opt: compile_opt
 	mkdir -p $(RUN_DIR)
 	$(VSIM) $(OPT_TOP) \
 	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) -sv_seed $(SEED) \
-	  -l $(RUN_LOG)
+	  -l $(RUN_LOG) -do "do $(WAVE_DO)"
 
 ## --------------------------- Coverage flow --------------------------------
 
