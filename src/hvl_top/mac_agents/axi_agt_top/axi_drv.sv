@@ -22,7 +22,7 @@ class axi_driver_c extends uvm_driver #(axi_item_c);
   extern function new(string name = "axi_driver_c", uvm_component parent = null);
 
   extern function void build_phase(uvm_phase phase);
-  extern task run_phase(uvm_phase phase);
+  extern virtual task run_phase(uvm_phase phase);
   extern task reset_signals();
   extern task drive_frame(axi_item_c item);
   extern task send_beat(logic [511:0] tdata, logic [63:0] tkeep, bit tlast, bit [7:0] tuser);
