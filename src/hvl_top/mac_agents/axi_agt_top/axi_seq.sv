@@ -10,6 +10,7 @@ class axi_sequence_c extends uvm_sequence #(axi_item_c);
 
   rand int        num_tx;
   axi_item_c axi_item_h;
+  axi_agent_cfg_c cfg_h;
 
   // Default number of frames driven per sequence run; can be
   // overridden by tests via configuration.
@@ -42,10 +43,34 @@ endfunction
  * and error injection vary per frame.
  */
 task axi_sequence_c::body();
+  if (!uvm_config_db#(axi_agent_cfg_c)::get(null, get_full_name(),
+                                            "axi_agent_cfg", cfg_h)) begin
+    `uvm_fatal(get_type_name(),
+               "uvm_config_db#(axi_agent_cfg_c)::get cannot find resource axi agt config")
+  end
+
+  // Default frame count; tests that constrain num_tx keep theirs.
+  if (!randomize() with { soft num_tx == cfg_h.num_tx_default; }) begin
+    `uvm_fatal(get_type_name(), "Randomization of num_tx failed")
+  end
+
   repeat (num_tx) begin
     axi_item_h = axi_item_c::type_id::create("axi_item_h");
-    if (!axi_item_h.randomize()) begin
-      `uvm_fatal(get_type_name(), "Randomization of axi_item_h failed")
+    if (cfg_h.enable_error_injection) begin
+      if (!axi_item_h.randomize() with {
+            soft payload.size() inside {[cfg_h.min_payload_len : cfg_h.max_payload_len]};
+          }) begin
+        `uvm_fatal(get_type_name(), "Randomization of axi_item_h failed")
+      end
+    end else begin
+      if (!axi_item_h.randomize() with {
+            crc_error       == 0;
+            length_error    == 0;
+            alignment_error == 0;
+            soft payload.size() inside {[cfg_h.min_payload_len : cfg_h.max_payload_len]};
+          }) begin
+        `uvm_fatal(get_type_name(), "Randomization of axi_item_h failed")
+      end
     end
     start_item(axi_item_h);
     finish_item(axi_item_h);
