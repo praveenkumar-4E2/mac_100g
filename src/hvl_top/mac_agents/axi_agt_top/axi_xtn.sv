@@ -53,9 +53,12 @@ class axi_item_c extends uvm_sequence_item;
   // Compute the CRC-32 FCS after randomization so it always
   // matches the random header + payload. If crc_error is set,
   // the computed FCS is deliberately NOT applied, leaving a
-  // random (wrong) FCS to inject a CRC error.
+  // random (wrong) FCS to inject a CRC error. Frames without
+  // an FCS field carry fcs = 0.
   function void post_randomize();
-    if (insert_fcs && !crc_error)
+    if (!insert_fcs)
+      fcs = '0;
+    else if (!crc_error)
       fcs = compute_fcs();
   endfunction
 
