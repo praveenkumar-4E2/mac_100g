@@ -1,0 +1,328 @@
+/**
+ * @brief Top-level testbench module: instantiates the DUT, clocks,
+ *        reset, ticks, APB configuration, and the AXI4-Stream
+ *        virtual interfaces handed to the UVM environment.
+ */
+module mac_tb_top;
+  `include "uvm_macros.svh"
+  import uvm_pkg::*;
+  import mac_test_pkg::*;
+
+  //============================================================================
+  // Clocks & reset
+  //============================================================================
+  logic mac_clk;
+  logic apb_clk;
+  logic mac_rst;
+  logic apb_rst;
+
+  // Bit-time ticks for the MAC TX/RX paths (1-cycle pulse every 4 mac_clk).
+  logic tx_tick;
+  logic rx_tick;
+  logic [1:0] tick_cnt;
+
+  //============================================================================
+  // AXI4-Stream virtual interfaces (TX slave, RX master)
+  //============================================================================
+  axi4_stream_if axi_tx_if (
+    .clk (mac_clk),
+    .rst (mac_rst)
+  );
+
+  axi4_stream_if axi_rx_if (
+    .clk (mac_clk),
+    .rst (mac_rst)
+  );
+
+  //============================================================================
+  // DUT scalar nets
+  //============================================================================
+  logic        tx_start;
+  logic [47:0] tx_dest_addr;
+  logic [47:0] tx_src_addr;
+  logic [15:0] tx_length_type;
+  logic        tx_client_valid;
+  logic        tx_client_eop;
+  logic [6:0]  tx_client_eop_pos;
+  logic        tx_client_fcs_present;
+  logic [511:0] tx_client_data;
+  logic [63:0]  tx_client_keep;
+  logic        tx_out_valid;
+  logic        tx_out_sop;
+  logic        tx_out_eop;
+  logic        tx_out_error;
+  logic        tx_busy;
+  logic        tx_frame_done;
+  logic [511:0] tx_out_data;
+  logic [63:0]  tx_out_keep;
+  logic [6:0]   tx_out_eop_pos;
+  logic        rx_in_valid;
+  logic        rx_in_sop;
+  logic        rx_in_eop;
+  logic        rx_in_error;
+  logic [511:0] rx_in_data;
+  logic [63:0]  rx_in_keep;
+  logic [6:0]   rx_in_eop_pos;
+  logic        rx_client_valid;
+  logic        rx_client_sop;
+  logic        rx_client_eop;
+  logic [511:0] rx_client_data;
+  logic [63:0]  rx_client_keep;
+  logic [6:0]   rx_client_eop_pos;
+  logic [47:0] rx_dest_addr;
+  logic [47:0] rx_src_addr;
+  logic [15:0] rx_length_type;
+  logic [31:0] rx_received_fcs;
+  logic        rx_frame_valid;
+  logic        rx_frame_drop;
+  logic        rx_crc_error;
+  logic        rx_length_error;
+  logic        rx_alignment_error;
+  logic        rx_filter_hit;
+  logic        rx_busy;
+  logic        pause_active;
+  logic        pause_timer_done;
+  logic [31:0] rx_invalid_count;
+  logic [31:0] rx_oversize_count;
+  logic [31:0] rx_unsupported_control_count;
+  logic [6:0]  interrupt_status;
+
+  // APB
+  logic        psel;
+  logic        penable;
+  logic        pwrite;
+  logic [15:0] paddr;
+  logic [31:0] pwdata;
+  logic [31:0] prdata;
+  logic        pready;
+  logic        pslverr;
+
+  //============================================================================
+  // DUT instantiation
+  //============================================================================
+  mac_top dut_inst (
+    .mac_clk        (mac_clk),
+    .mac_rst        (mac_rst),
+    .apb_clk        (apb_clk),
+    .apb_rst        (apb_rst),
+    .psel           (psel),
+    .penable        (penable),
+    .pwrite         (pwrite),
+    .paddr          (paddr),
+    .pwdata         (pwdata),
+    .prdata         (prdata),
+    .pready         (pready),
+    .pslverr        (pslverr),
+    .tx_start       (tx_start),
+    .tx_dest_addr   (tx_dest_addr),
+    .tx_src_addr    (tx_src_addr),
+    .tx_length_type (tx_length_type),
+    .tx_client_valid    (tx_client_valid),
+    .tx_client_ready    (),
+    .tx_client_data     (tx_client_data),
+    .tx_client_keep     (tx_client_keep),
+    .tx_client_eop      (tx_client_eop),
+    .tx_client_eop_pos  (tx_client_eop_pos),
+    .tx_client_fcs_present (tx_client_fcs_present),
+    .tx_out_valid   (tx_out_valid),
+    .tx_out_ready   (1'b1),
+    .tx_out_data    (tx_out_data),
+    .tx_out_keep    (tx_out_keep),
+    .tx_out_sop     (tx_out_sop),
+    .tx_out_eop     (tx_out_eop),
+    .tx_out_eop_pos (tx_out_eop_pos),
+    .tx_out_error   (tx_out_error),
+    .tx_busy        (tx_busy),
+    .tx_frame_done  (tx_frame_done),
+    .tx_tick        (tx_tick),
+    .rx_in_valid    (rx_in_valid),
+    .rx_in_ready    (),
+    .rx_in_data     (rx_in_data),
+    .rx_in_keep     (rx_in_keep),
+    .rx_in_sop      (rx_in_sop),
+    .rx_in_eop      (rx_in_eop),
+    .rx_in_eop_pos  (rx_in_eop_pos),
+    .rx_in_error    (rx_in_error),
+    .rx_tick        (rx_tick),
+    .rx_client_valid    (rx_client_valid),
+    .rx_client_ready    (1'b1),
+    .rx_client_data     (rx_client_data),
+    .rx_client_keep     (rx_client_keep),
+    .rx_client_sop      (rx_client_sop),
+    .rx_client_eop      (rx_client_eop),
+    .rx_client_eop_pos  (rx_client_eop_pos),
+    .rx_dest_addr   (rx_dest_addr),
+    .rx_src_addr    (rx_src_addr),
+    .rx_length_type (rx_length_type),
+    .rx_received_fcs    (rx_received_fcs),
+    .rx_frame_valid     (rx_frame_valid),
+    .rx_frame_drop      (rx_frame_drop),
+    .rx_crc_error       (rx_crc_error),
+    .rx_length_error    (rx_length_error),
+    .rx_alignment_error (rx_alignment_error),
+    .rx_filter_hit      (rx_filter_hit),
+    .rx_busy            (rx_busy),
+    .pause_active       (pause_active),
+    .pause_timer_done   (pause_timer_done),
+    .rx_invalid_count   (rx_invalid_count),
+    .rx_oversize_count  (rx_oversize_count),
+    .rx_unsupported_control_count (rx_unsupported_control_count),
+    .interrupt_status   (interrupt_status),
+    .s_axis_tx_tdata  (axi_tx_if.tdata),
+    .s_axis_tx_tkeep  (axi_tx_if.tkeep),
+    .s_axis_tx_tvalid (axi_tx_if.tvalid),
+    .s_axis_tx_tready (axi_tx_if.tready),
+    .s_axis_tx_tlast  (axi_tx_if.tlast),
+    .s_axis_tx_tuser  (axi_tx_if.tuser),
+    .m_axis_rx_tdata  (axi_rx_if.tdata),
+    .m_axis_rx_tkeep  (axi_rx_if.tkeep),
+    .m_axis_rx_tvalid (axi_rx_if.tvalid),
+    .m_axis_rx_tready (axi_rx_if.tready),
+    .m_axis_rx_tlast  (axi_rx_if.tlast),
+    .m_axis_rx_tuser  (axi_rx_if.tuser)
+  );
+
+  //============================================================================
+  // Scalar tie-offs (AXI4-Stream mode: metadata comes from the stream)
+  //============================================================================
+  assign tx_dest_addr          = '0;
+  assign tx_src_addr           = '0;
+  assign tx_length_type        = '0;
+  assign tx_client_valid       = 1'b0;
+  assign tx_client_data        = '0;
+  assign tx_client_keep        = '0;
+  assign tx_client_eop         = 1'b0;
+  assign tx_client_eop_pos     = '0;
+  assign tx_client_fcs_present = 1'b0;
+  assign rx_in_valid           = 1'b0;
+  assign rx_in_data            = '0;
+  assign rx_in_keep            = '0;
+  assign rx_in_sop             = 1'b0;
+  assign rx_in_eop             = 1'b0;
+  assign rx_in_eop_pos         = '0;
+  assign rx_in_error           = 1'b0;
+
+  // RX-side AXI slave: always accept frames from the DUT.
+  assign axi_rx_if.tready = 1'b1;
+
+  //============================================================================
+  // Clock generation: mac_clk 195.3125 MHz (5.12 ns);
+  // apb_clk = mac_clk / 2 (10.24 ns), free-running from t=0. The RTL uses
+  // synchronous resets, so apb_clk must run while apb_rst is asserted or the
+  // APB-domain registers (reg_file, cdc_handshake) never see their reset.
+  //============================================================================
+  initial begin
+    mac_clk = 1'b0;
+    forever #2.56ns mac_clk = ~mac_clk;
+  end
+
+  initial begin
+    apb_clk = 1'b0;
+    forever #5.12ns apb_clk = ~apb_clk;
+  end
+
+  //============================================================================
+  // Reset: asserted at time 0, released after 10 mac_clk cycles
+  //============================================================================
+  initial begin
+    mac_rst = 1'b1;
+    apb_rst = 1'b1;
+    repeat (10) @(posedge mac_clk);
+    mac_rst = 1'b0;
+    apb_rst = 1'b0;
+  end
+
+  //============================================================================
+  // Bit-time tick generation: 1-cycle pulse every 4 mac_clk cycles
+  //============================================================================
+  always @(posedge mac_clk or posedge mac_rst) begin
+    if (mac_rst) begin
+      tick_cnt <= '0;
+      tx_tick  <= 1'b0;
+      rx_tick  <= 1'b0;
+    end else begin
+      tick_cnt <= tick_cnt + 1'b1;
+      tx_tick  <= (tick_cnt == 2'd3);
+      rx_tick  <= (tick_cnt == 2'd3);
+    end
+  end
+
+  //============================================================================
+  // TX start pulse generation for the AXI4-Stream path.
+  //
+  // The DUT's TX scheduler admits a frame only while `start` is high
+  // (start && request_ready && ipg_done, mac_top.sv:711), and the scalar
+  // tx_start pin is not driven by the AXI adapter. Drive tx_start high while
+  // a frame is pending at the AXI interface (held until the first beat
+  // handshake so late admission after IPG still works), and track frame
+  // activity from the AXI handshake.
+  //============================================================================
+  logic tx_frame_active;
+
+  always @(posedge mac_clk) begin
+    if (mac_rst) begin
+      tx_start        <= 1'b0;
+      tx_frame_active <= 1'b0;
+    end else begin
+      tx_start <= 1'b0;
+      if (axi_tx_if.tvalid && !tx_frame_active)
+        tx_start <= 1'b1;  // frame pending: request admission
+      if (axi_tx_if.tvalid && axi_tx_if.tready) begin
+        if (axi_tx_if.tlast)
+          tx_frame_active <= 1'b0;
+        else
+          tx_frame_active <= 1'b1;
+      end
+    end
+  end
+
+  //============================================================================
+  // APB configuration: enable RX/TX and promiscuous mode
+  // (REG_GLOBAL_CONTROL = 0x0004, bits CTRL_RX|CTRL_TX|CTRL_PROMISCUOUS)
+  //============================================================================
+  task automatic apb_write(input logic [15:0] addr, input logic [31:0] wdata);
+    int guard;
+    bit err;
+    @(posedge apb_clk);
+    psel    <= 1'b1;
+    pwrite  <= 1'b1;
+    paddr   <= addr;
+    pwdata  <= wdata;
+    penable <= 1'b0;
+    @(posedge apb_clk);
+    penable <= 1'b1;
+    guard = 0;
+    while (!pready) begin
+      @(posedge apb_clk);
+      guard++;
+      if (guard > 64) begin
+        $error("%m: APB write timeout at address %h", addr);
+        break;
+      end
+    end
+    err = pslverr;
+    psel    <= 1'b0;
+    penable <= 1'b0;
+    pwrite  <= 1'b0;
+    if (err)
+      $error("%m: APB slave error at address %h", addr);
+  endtask
+
+  initial begin
+    wait (!mac_rst);
+    #100ns;
+    apb_write(16'h0004, 32'h0000_0085);  // RX_EN | TX_EN | PROMISCUOUS
+    #50ns;
+    uvm_config_db#(bit)::set(null, "*", "rst_done", 1'b1);
+  end
+
+  //============================================================================
+  // UVM: publish the virtual interfaces, then run the test
+  //============================================================================
+  initial begin
+    uvm_config_db#(virtual axi4_stream_if)::set(null, "*", "axi_tx_vif", axi_tx_if);
+    uvm_config_db#(virtual axi4_stream_if)::set(null, "*", "axi_rx_vif", axi_rx_if);
+    run_test("mac_base_test_c");
+  end
+
+endmodule
