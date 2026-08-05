@@ -5,8 +5,6 @@ if {![file exists work]} {
 }
 vmap work work
 
-vlog -sv +acc -f mac_compile.f
+vlog -sv +acc -suppress 2892 -f mac_compile.f
 
 vsim -voptargs=+acc work.mac_tb_top +UVM_TESTNAME=mac_base_test_c +UVM_VERBOSITY=UVM_MEDIUM -sv_seed random
-
-run -all
