@@ -5,24 +5,24 @@ class mac_env_cfg_c extends uvm_object;
 
   bit has_scoreboard = 1;
 
-  bit has_tx_agents = 1;
+  bit has_axi_agents = 1;
 
-  bit has_rx_agents = 1;
+  bit has_rs_agents = 1;
 
   bit has_virtual_sequencer = 1;
 
-  mac_tx_agent_cfg_c tx_active_agent_cfgs[];
-  mac_tx_agent_cfg_c tx_passive_agent_cfgs[];
+  axi_agent_cfg_c axi_active_agent_cfgs[];
+  axi_agent_cfg_c axi_passive_agent_cfgs[];
 
-  mac_rx_agent_cfg_c rx_active_agent_cfgs[];
-  mac_rx_agent_cfg_c rx_passive_agent_cfgs[];
+  rs_agent_cfg_c rs_active_agent_cfgs[];
+  rs_agent_cfg_c rs_passive_agent_cfgs[];
 
 
-  int num_tx_active_agents = 1;
-  int num_tx_passive_agents = 1;
+  int num_axi_active_agents = 1;
+  int num_axi_passive_agents = 1;
 
-  int num_rx_active_agents = 1;
-  int num_rx_passive_agents = 1;
+  int num_rs_active_agents = 1;
+  int num_rs_passive_agents = 1;
 
   int num_duts = 1;
   static int mon_rcvd_xtn_cnt = 0;

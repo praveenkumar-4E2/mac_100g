@@ -7,7 +7,7 @@ package mac_test_pkg;
   `include "rs_agt_config.sv"
   `include "axi_agt_config.sv"
   `include "mac_env_config.sv"
-  `include "rs_xtn.sv"
+  `include "frame_xtn.sv"
   `include "rs_seqr.sv"
   `include "rs_seq.sv"
   `include "rs_drv.sv"

@@ -7,13 +7,13 @@ class mac_coverage_c extends uvm_component;
 
   axi_item_c axi_item_h;
   uvm_analysis_imp_axi_cov #(axi_item_c, mac_coverage_c) axi_observed_imp;
-  uvm_analysis_imp_rs_cov #(rs_item_c, mac_coverage_c) rs_observed_imp;
+  uvm_analysis_imp_rs_cov #(frame_xtn_c, mac_coverage_c) rs_observed_imp;
 
   extern function new(string name = "mac_coverage_c", uvm_component parent = null);
 
 
   extern function void write_axi_cov(axi_item_c m_axi_xtn);
-  extern function void write_rs_cov(rs_item_c m_rs_xtn);
+  extern function void write_rs_cov(frame_xtn_c m_rs_xtn);
 endclass
 
 /**
@@ -42,7 +42,7 @@ function void mac_coverage_c::write_axi_cov(axi_item_c m_axi_xtn);
   //TODO: sample AXI coverage groups here.
 endfunction
 
-function void mac_coverage_c::write_rs_cov(rs_item_c m_rs_xtn);
+function void mac_coverage_c::write_rs_cov(frame_xtn_c m_rs_xtn);
   //TODO: sample RS coverage groups here.
 endfunction
 

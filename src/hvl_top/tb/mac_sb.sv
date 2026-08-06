@@ -13,10 +13,10 @@
 class mac_scoreboard_c extends uvm_scoreboard;
   `uvm_component_utils(mac_scoreboard_c)
 
-  uvm_tlm_analysis_fifo #(mac_tx_item_c) tx_actual_fifo;
-  uvm_tlm_analysis_fifo #(mac_rx_item_c) rx_actual_fifo;
-  uvm_tlm_analysis_fifo #(mac_rx_item_c) rx_expected_fifo;
-  uvm_tlm_analysis_fifo #(mac_tx_item_c) tx_expected_fifo;
+  uvm_tlm_analysis_fifo #(axi_item_c) axi_actual_fifo;
+  uvm_tlm_analysis_fifo #(frame_xtn_c) rs_actual_fifo;
+  uvm_tlm_analysis_fifo #(frame_xtn_c) rs_expected_fifo;
+  uvm_tlm_analysis_fifo #(axi_item_c) axi_expected_fifo;
 
   extern function new(string name = "mac_scoreboard_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
@@ -40,11 +40,10 @@ endclass
  */
 function mac_scoreboard_c::new(string name = "mac_scoreboard_c", uvm_component parent = null);
   super.new(name, parent);
-  tx_actual_fifo   = new("tx_actual_fifo", this);
-  rx_actual_fifo   = new("rx_actual_fifo", this);
-  tx_expected_fifo = new("tx_expected_fifo", this);
-  rx_expected_fifo = new("rx_expected_fifo", this);
-endfunction
+  axi_actual_fifo   = new("axi_actual_fifo", this);
+  rs_actual_fifo   = new("rs_actual_fifo", this);
+  axi_expected_fifo = new("axi_expected_fifo", this);
+  rs_expected_fifo = new("rs_expected_fifo", this);endfunction
 
 /**
  * @brief
