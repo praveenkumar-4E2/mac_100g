@@ -7,6 +7,7 @@ module mac_tb_top;
   `include "uvm_macros.svh"
   import uvm_pkg::*;
   import mac_test_pkg::*;
+  import rs_globals_pkg::*;
 
   //============================================================================
   // Clocks & reset

@@ -1,47 +1,25 @@
 /**
- * @brief Controls the flow of MAC RX transactions between the
- *        sequence and driver.
+ * @brief MAC RS RX Sequencer.
  *
- * The sequencer receives transaction requests from one or more
- * sequences, arbitrates them if required, and forwards the
- * selected transaction to the driver for execution.
+ * Coordinates communication between the RS sequences and
+ * the RS driver. It receives sequence items from the active
+ * sequence and forwards them to the driver for execution.
  */
 class rs_sequencer_c extends uvm_sequencer #(frame_xtn_c);
-
-  /** Register the sequencer with the UVM factory. */
   `uvm_component_utils(rs_sequencer_c)
 
-  /** Constructor declaration. */
   extern function new(string name = "rs_sequencer_c", uvm_component parent = null);
-
-  /** Build phase declaration. */
-  extern function void build_phase(uvm_phase phase);
-
 endclass
 
-
 /**
- * @brief Constructor implementation.
+ * @brief Constructor for the MAC RS RX sequencer.
  *
- * Initializes the MAC RX sequencer component and establishes
- * its relationship with the parent UVM component.
+ * Initializes the sequencer by calling the parent class
+ * constructor.
  *
- * @param name   Instance name of the sequencer.
- * @param parent Parent UVM component.
+ * @param name Name of the sequencer component.
+ * @param parent Parent component in the UVM hierarchy.
  */
 function rs_sequencer_c::new(string name = "rs_sequencer_c", uvm_component parent = null);
   super.new(name, parent);
-endfunction
-
-
-/**
- * @brief Build phase implementation.
- *
- * Executes the UVM build phase for the sequencer and performs
- * any sequencer-specific initialization, if required.
- *
- * @param phase Current UVM phase.
- */
-function void rs_sequencer_c::build_phase(uvm_phase phase);
-  super.build_phase(phase);
 endfunction

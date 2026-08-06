@@ -31,7 +31,7 @@ module mac_rx_path #(
   input  logic                    in_eop,
   input  logic [EOP_POS_W-1:0]    in_eop_pos,
   input  logic                    in_error,
-  mac_if.client_mp                client_if,
+  mac_if                      client_if,
   input  logic [47:0]             local_addr,
   input  logic                    promiscuous_en,
   input  logic                    pause_en,

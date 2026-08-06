@@ -1,30 +1,76 @@
 /**
- * @brief Monitors MAC RX interface activity and captures
- *        protocol transactions.
+ * @brief MAC RS (line-side) Monitor.
  *
- * The monitor passively samples the interface signals,
- * reconstructs signal-level activity into transaction
- * objects, and forwards the captured transactions to
- * analysis components for checking and coverage.
+ * Passively samples the native MAC <-> RS interface (mac_if)
+ * from the MAC side, reconstructs signal-level activity into
+ * frame_xtn_c transactions, and forwards them through the
+ * analysis port for checking and coverage.
+ *
+ * Sampling rules (see src/hdl_top/integration/mac_top.sv scalar
+ * RX ports and src/hdl_top/rx/rx_preamble_detect.sv):
+ *  - A beat is captured on a valid && ready handshake.
+ *  - Stream inputs are read through the cb_mac clocking block;
+ *    ready is read raw (reading cb_mac.ready, an output, would
+ *    return the write-through value, not the wire value).
+ *  - Frames are lane-0 aligned: sop on beat 0, eop + eop_pos on
+ *    the final beat, keep a contiguous-ones prefix mask.
+ *  - error may assert on the final beat only (a beat-0 error
+ *    drops the frame at the preamble detector SEARCH state).
+ *  - fcs_present marks frames whose last four bytes are FCS.
+ *  - cfg_h.ipg_bits (96 per IEEE 802.3) of idle must separate
+ *    consecutive frames; the final beat's unused lanes count
+ *    toward that gap.
+ *
+ * Reconstructed items carry:
+ *  - preamble/SFD/DA/SA/ether_type/payload/fcs byte-exact from
+ *    the wire, insert_fcs = fcs_present,
+ *  - crc_error = FCS mismatch against a freshly computed CRC-32,
+ *  - length_error = ether_type used as a length (< cfg_h.eth_len_bound)
+ *    that disagrees with the counted payload,
+ *  - alignment_error = wire error on the final beat.
+ * Protocol field sizes come from the global rs_globals_pkg; beat
+ * geometry comes from the mac_if parameters (KEEP_WIDTH/DATA_WIDTH).
  */
-class rs_monitor_c extends uvm_monitor;
 
-  /** Register the monitor with the UVM factory. */
+class rs_monitor_c extends uvm_monitor;
   `uvm_component_utils(rs_monitor_c)
 
+  virtual mac_if            vif;
+  rs_agent_cfg_c            cfg_h;
   uvm_analysis_port #(frame_xtn_c) analysis_port;
-  /** Constructor declaration. */
-  extern function new(string name = "rs_monitor_c", uvm_component parent = null);
 
-  /** Build phase declaration. */
+  byte unsigned frame_q[$];
+  frame_xtn_c   item;
+  bit           in_frame    = 0;
+  bit           beat_valid  = 0;
+  bit           beat_eop    = 0;
+  bit           frame_start = 0;
+  int           idle_cnt    = 0;
+  int           gap_idle_cnt = 0;
+  int           prev_eop_pos = 0;
+  int           beats       = 0;
+  int           frames_seen = 0;
+  logic [6:0]   eop_pos_v   = 0;
+  bit           last_err    = 0;
+  bit           last_fcs    = 0;
+
+  extern function new(string name = "rs_monitor_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
+  extern virtual task run_phase(uvm_phase phase);
+  extern task capture_beat();
+  extern task check_keep();
+  extern task check_ipg();
+  extern task finish_frame();
+  extern function void frame_to_item(byte unsigned frame_q[$], int eop_pos_v,
+                                     bit last_err, bit last_fcs,
+                                     output frame_xtn_c item);
 endclass
 
 
 /**
  * @brief Constructor implementation.
  *
- * Initializes the MAC RX monitor component and establishes
+ * Initializes the MAC RS monitor component and establishes
  * its relationship with the parent UVM component.
  *
  * @param name   Instance name of the monitor.
@@ -39,11 +85,281 @@ endfunction
 /**
  * @brief Build phase implementation.
  *
- * Executes the UVM build phase for the monitor and performs
- * any monitor-specific initialization, if required.
+ * Retrieves the agent configuration and the virtual native
+ * MAC <-> RS interface from the UVM configuration database.
  *
  * @param phase Current UVM phase.
  */
 function void rs_monitor_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
+  if (!uvm_config_db#(rs_agent_cfg_c)::get(this, "", "rs_agent_cfg", cfg_h)) begin
+    `uvm_fatal("CONFIG_ERROR",
+               "uvm_config_db#(rs_agent_cfg_c)::get cannot find resource rs agt config")
+  end
+  if (cfg_h.vif == null) begin
+    `uvm_fatal("CONFIG_ERROR", "rs_agent_cfg_c::vif is null")
+  end
+  vif = cfg_h.vif;
 endfunction
+
+
+/**
+ * @brief Implements the UVM run phase.
+ *
+ * Continuously samples the interface, reconstructs complete
+ * frames, runs protocol checks, and forwards the captured
+ * transactions to the analysis port.
+ *
+ * Scheduling is delegated to the sampling/checking tasks:
+ * capture_beat() blocks until the next clocking edge and
+ * updates the capture state; on a valid && ready handshake
+ * check_keep() and (at end of frame) finish_frame() run,
+ * with check_ipg() verifying the inter-frame gap at the
+ * start of each new frame.
+ *
+ * @param phase Current UVM run phase.
+ */
+task rs_monitor_c::run_phase(uvm_phase phase);
+  prev_eop_pos = vif.KEEP_WIDTH;
+
+  forever begin
+    capture_beat();
+    if (beat_valid) begin
+      check_keep();
+      if (frame_start)
+        check_ipg();
+      if (beat_eop)
+        finish_frame();
+    end
+  end
+endtask
+
+
+/**
+ * @brief Samples one clocking edge and captures a beat.
+ *
+ * Blocks on the next cb_mac clocking edge and updates the
+ * capture state:
+ *  - valid && ready: marks beat_valid, checks sop structure,
+ *    pushes the beat bytes into frame_q, and latches eop/error/
+ *    fcs_present for the downstream checks.
+ *  - !valid: counts one idle cycle toward the inter-frame gap.
+ *    At frame start the accumulated gap count is latched into
+ *    gap_idle_cnt for check_ipg before the counter resets.
+ *  - other cases (e.g. unknown valid before the first drive):
+ *    treated as neither handshake nor idle.
+ */
+task rs_monitor_c::capture_beat();
+  @(vif.cb_mac);
+
+  beat_valid  = 0;
+  frame_start = 0;
+  beat_eop    = 0;
+
+  if (vif.cb_mac.valid && vif.ready) begin
+    beat_valid = 1;
+
+    if (!in_frame) begin
+      if (!vif.cb_mac.sop)
+        `uvm_error(get_type_name(), "sop not asserted on first beat of frame")
+      frame_start = 1;
+      gap_idle_cnt = idle_cnt;
+      idle_cnt    = 0;
+      in_frame    = 1;
+      beats       = 0;
+      frame_q.delete();
+    end else if (vif.cb_mac.sop) begin
+      `uvm_error(get_type_name(), "sop asserted inside frame")
+    end
+
+    beats++;
+
+    for (int l = 0; l < vif.KEEP_WIDTH; l++)
+      if (vif.cb_mac.keep[l])
+        frame_q.push_back(vif.cb_mac.data[l*8 +: 8]);
+
+    beat_eop   = vif.cb_mac.eop;
+    eop_pos_v  = vif.cb_mac.eop_pos;
+    last_err   = vif.cb_mac.error;
+    last_fcs   = vif.cb_mac.fcs_present;
+  end else if (!vif.cb_mac.valid) begin
+    idle_cnt++;
+  end
+endtask
+
+
+/**
+ * @brief Checks the keep mask of the captured beat.
+ *
+ * Runs on every captured handshake beat:
+ *  - keep must be nonzero and a contiguous-ones prefix mask,
+ *  - final beat (beat_eop): all ones when full, otherwise
+ *    (1 << eop_pos) - 1,
+ *  - interior beats: keep all ones, error deasserted, and
+ *    eop_pos zero.
+ */
+task rs_monitor_c::check_keep();
+  if (vif.cb_mac.keep == '0)
+    `uvm_error(get_type_name(), "keep = 0 on valid beat")
+  // 64'h1 is width-matched to the keep field (KEEP_WIDTH bits;
+  // an unsized literal would truncate the +1 to 32 bits and
+  // break the carry through the top lanes).
+  else if ((vif.cb_mac.keep & (vif.cb_mac.keep + 64'h1)) != '0)
+    `uvm_error(get_type_name(),
+               $sformatf("keep %h is not a contiguous-ones prefix mask",
+                         vif.cb_mac.keep))
+
+  if (beat_eop) begin
+    if (eop_pos_v == vif.KEEP_WIDTH) begin
+      if (vif.cb_mac.keep != '1)
+        `uvm_error(get_type_name(),
+                   $sformatf("full final beat keep %h != all ones",
+                             vif.cb_mac.keep))
+    end else if (vif.cb_mac.keep != ((64'h1 << eop_pos_v) - 1)) begin
+      `uvm_error(get_type_name(),
+                 $sformatf("final beat keep %h != (1<<eop_pos)-1 (%h)",
+                           vif.cb_mac.keep, ((64'h1 << eop_pos_v) - 1)))
+    end
+  end else begin
+    if (vif.cb_mac.keep != '1)
+      `uvm_error(get_type_name(),
+                 $sformatf("interior beat keep %h != all ones",
+                           vif.cb_mac.keep))
+    if (vif.cb_mac.error)
+      `uvm_error(get_type_name(), "error asserted on non-final beat")
+    if (vif.cb_mac.eop_pos != 0)
+      `uvm_error(get_type_name(),
+                 $sformatf("eop_pos %0d nonzero on non-final beat",
+                           vif.cb_mac.eop_pos))
+  end
+endtask
+
+
+/**
+ * @brief Checks the inter-frame gap at the start of a frame.
+ *
+ * Verifies that the idle between consecutive frames equals
+ * the expected number of bits: the previous final beat's
+ * unused lanes plus whole idle cycles (gap_idle_cnt, latched
+ * by capture_beat), rounded up from cfg_h.ipg_bits to the
+ * beat boundary.
+ */
+task rs_monitor_c::check_ipg();
+  int idle_bits;
+  int expected;
+
+  if (frames_seen == 0)
+    return;
+
+  idle_bits = (vif.KEEP_WIDTH - prev_eop_pos) * 8 + gap_idle_cnt * vif.DATA_WIDTH;
+  expected  = (cfg_h.ipg_bits > (vif.KEEP_WIDTH - prev_eop_pos) * 8) ?
+              (((cfg_h.ipg_bits - (vif.KEEP_WIDTH - prev_eop_pos) * 8 +
+                 vif.DATA_WIDTH - 1) / vif.DATA_WIDTH) * vif.DATA_WIDTH +
+               (vif.KEEP_WIDTH - prev_eop_pos) * 8) :
+              (vif.KEEP_WIDTH - prev_eop_pos) * 8;
+  if (idle_bits != expected)
+    `uvm_error(get_type_name(),
+               $sformatf("IPG=%0d bits != expected %0d bits (idle=%0d cycles, prev_eop_pos=%0d)",
+                         idle_bits, expected, gap_idle_cnt, prev_eop_pos))
+endtask
+
+
+/**
+ * @brief Closes out a captured frame at end of frame.
+ *
+ * Validates the byte count against beats and eop_pos, enforces
+ * the minimum frame size, reconstructs the transaction, and
+ * forwards it through the analysis port. Resets the frame state
+ * for the next frame.
+ */
+task rs_monitor_c::finish_frame();
+  frames_seen++;
+
+  if (frame_q.size() != vif.KEEP_WIDTH * (beats - 1) + eop_pos_v)
+    `uvm_error(get_type_name(),
+               $sformatf("byte count %0d != %0d*%0d+eop_pos=%0d",
+                         frame_q.size(), vif.KEEP_WIDTH, beats - 1,
+                         eop_pos_v))
+  else if (frame_q.size() < RS_MIN_FRAME_BYTES + (last_fcs ? RS_FCS_BYTES : 0))
+    `uvm_error(get_type_name(),
+               $sformatf("frame too short: %0d bytes, fcs_present=%0b",
+                         frame_q.size(), last_fcs))
+  else begin
+    frame_to_item(frame_q, eop_pos_v, last_err, last_fcs, item);
+    cfg_h.mon_rcvd_xtn_cnt++;
+    if (cfg_h.enable_logger)
+      `uvm_info(get_type_name(),
+                $sformatf("mon rcvd frame: %s beats=%0d bytes=%0d",
+                          item.convert2string(), beats, frame_q.size()),
+                UVM_MEDIUM)
+    else
+      `uvm_info(get_type_name(),
+                $sformatf("mon rcvd frame: %s beats=%0d bytes=%0d",
+                          item.convert2string(), beats, frame_q.size()),
+                UVM_HIGH)
+    analysis_port.write(item);
+  end
+  prev_eop_pos = eop_pos_v;
+  in_frame     = 0;
+endtask
+
+
+/**
+ * @brief Reconstructs a frame_xtn_c from a captured byte stream.
+ *
+ * Splits the wire bytes into protocol fields and derives the
+ * error flags:
+ *  - crc_error: FCS present but not equal to a freshly computed
+ *    CRC-32 over DA + SA + ether_type + payload (IEEE 802.3,
+ *    preamble/SFD not FCS-covered).
+ *  - length_error: ether_type below 0x0600 (a length field) that
+ *    disagrees with the counted payload.
+ *  - alignment_error: wire error on the final beat.
+ *
+ * @param frame_q Captured frame bytes (preamble..FCS).
+ * @param eop_pos_v Valid byte count on the final beat.
+ * @param last_err  Wire error flag on the final beat.
+ * @param last_fcs  Wire fcs_present flag.
+ * @param item      Reconstructed transaction (output).
+ */
+function void rs_monitor_c::frame_to_item(byte unsigned frame_q[$], int eop_pos_v,
+                                          bit last_err, bit last_fcs,
+                                          output frame_xtn_c item);
+  int n       = frame_q.size();
+  int pld_len = n - RS_MIN_FRAME_BYTES - (last_fcs ? RS_FCS_BYTES : 0);
+
+  item = frame_xtn_c::type_id::create("item");
+  item.preamble = '0;
+  for (int i = 0; i < RS_PREAMBLE_BYTES; i++)
+    item.preamble[RS_PREAMBLE_BYTES * 8 - 1 - 8*i -: 8] = frame_q[i];
+  item.sfd      = frame_q[RS_PREAMBLE_BYTES];
+  item.dst_addr = '0;
+  for (int i = 0; i < RS_DA_BYTES; i++)
+    item.dst_addr[47 - 8*i -: 8] =
+      frame_q[RS_PREAMBLE_SFD_BYTES + i];
+  item.src_addr = '0;
+  for (int i = 0; i < RS_SA_BYTES; i++)
+    item.src_addr[47 - 8*i -: 8] =
+      frame_q[RS_PREAMBLE_SFD_BYTES + RS_DA_BYTES + i];
+  item.ether_type =
+    {frame_q[RS_PREAMBLE_SFD_BYTES + RS_HDR_BYTES - 2],
+     frame_q[RS_PREAMBLE_SFD_BYTES + RS_HDR_BYTES - 1]};
+  item.payload = new[pld_len];
+  foreach (item.payload[i])
+    item.payload[i] = frame_q[RS_MIN_FRAME_BYTES + i];
+  item.insert_fcs = last_fcs;
+  if (last_fcs) begin
+    item.fcs = '0;
+    for (int i = 0; i < RS_FCS_BYTES; i++)
+      item.fcs[RS_FCS_BYTES * 8 - 1 - 8*i -: 8] = frame_q[n - RS_FCS_BYTES + i];
+  end else begin
+    item.fcs = '0;
+  end
+
+  item.crc_error       = last_fcs && (item.compute_fcs() != item.fcs);
+  item.length_error    = (item.ether_type < cfg_h.eth_len_bound) &&
+                         (item.ether_type != pld_len);
+  item.alignment_error = last_err;
+endfunction
+
+

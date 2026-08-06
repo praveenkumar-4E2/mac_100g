@@ -72,5 +72,6 @@
 
 # HVL
 ../../src/globals/mac_common_defs.sv
+../../src/globals/rs_globals.sv
 ../../src/hvl_top/test/mac_test_pkg.sv
 ../../src/hvl_top/tb/mac_tb_top.sv

@@ -1,6 +1,7 @@
 package mac_test_pkg;
   `include "uvm_macros.svh"
   import uvm_pkg::*;
+  import rs_globals_pkg::*;
 
   `include "mac_common_defs.sv"
 
