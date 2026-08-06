@@ -96,13 +96,13 @@ logic      RSTN;          // ALL CAPS, no underscore separation
 
 **Correct Example:**
 ```systemverilog
-class mac_tx_driver_c extends uvm_driver #(mac_tx_seq_item_c);
-  mac_tx_agent_cfg_c   m_cfg;
+class axi_driver_c extends uvm_driver #(axi_seq_item_c);
+  axi_agent_cfg_c   m_cfg;
   int                  m_frames_sent;
   virtual mac_if       m_vif;
 
   task run_phase(uvm_phase phase);
-    mac_tx_seq_item_c local_item; // local variable, no m_ prefix
+    axi_seq_item_c local_item; // local variable, no m_ prefix
     // ...
   endtask
 endclass
@@ -110,8 +110,8 @@ endclass
 
 **Incorrect Example:**
 ```systemverilog
-class mac_tx_driver_c extends uvm_driver #(mac_tx_seq_item_c);
-  mac_tx_agent_cfg_c   cfg;         // ambiguous - looks like a local var
+class axi_driver_c extends uvm_driver #(axi_seq_item_c);
+  axi_agent_cfg_c   cfg;         // ambiguous - looks like a local var
   int                  framesSent;  // camelCase, no m_ prefix
 endclass
 ```
@@ -155,7 +155,7 @@ endtask
 
 **Rule:** Class names shall be `lower_snake_case`, identify the UVM role via a role segment (`_agent`, `_driver`, `_monitor`, `_sequencer`, `_sequence`, `_seq_item`, `_scoreboard`, `_env`, `_test`, `_cfg`), and always end with a final `_c` suffix marking the identifier as a **class type**. This makes it instantly obvious, anywhere in the code, whether an identifier refers to a class type versus a handle/instance/macro of the same base name.
 
-> Note: The `_c` suffix is a project-specific convention layered on top of the general SystemVerilog/UVM `snake_case` class-naming style. It is especially useful in mixed RTL/testbench codebases and code reviews, where `mac_tx_driver_c` unambiguously reads as "the class", while a handle can safely be named `mac_tx_driver` or `m_tx_drv` without any naming collision.
+> Note: The `_c` suffix is a project-specific convention layered on top of the general SystemVerilog/UVM `snake_case` class-naming style. It is especially useful in mixed RTL/testbench codebases and code reviews, where `axi_driver_c` unambiguously reads as "the class", while a handle can safely be named `axi_driver` or `m_tx_drv` without any naming collision.
 
 **Steps to Follow:**
 1. Prefix the class with the block/protocol name (`mac_`, `pcie_`, `axi_`).
@@ -163,23 +163,23 @@ endtask
 3. Add the UVM role suffix (`_driver`, `_monitor`, `_env`, etc.).
 4. Terminate the name with `_c` as the final suffix, after the role segment.
 5. Match the file name exactly to the class name, including the `_c` (see 1.6).
-6. Name the class handle/instance without the `_c` (e.g., a variable of type `mac_tx_driver_c` can be named `m_tx_drv`), so type and instance are never confused.
+6. Name the class handle/instance without the `_c` (e.g., a variable of type `axi_driver_c` can be named `m_tx_drv`), so type and instance are never confused.
 
 **Correct Example:**
 ```systemverilog
-class mac_tx_driver_c     extends uvm_driver #(mac_tx_seq_item_c);
-class mac_tx_seq_item_c   extends uvm_sequence_item;
+class axi_driver_c     extends uvm_driver #(axi_seq_item_c);
+class axi_seq_item_c   extends uvm_sequence_item;
 class mac_env_c           extends uvm_env;
 class mac_base_test_c     extends uvm_test;
 
 // instance/handle - no _c suffix, so it reads distinctly from the type name
-mac_tx_driver_c m_tx_drv;
+axi_driver_c m_tx_drv;
 ```
 
 **Incorrect Example:**
 ```systemverilog
 class MacTxDriver extends uvm_driver #(MacTxSeqItem); // PascalCase, inconsistent with uvm_driver
-class mac_tx_driver extends uvm_driver #(mac_tx_seq_item); // missing _c, ambiguous vs. a handle of the same name
+class axi_driver extends uvm_driver #(axi_seq_item); // missing _c, ambiguous vs. a handle of the same name
 class Driver1_c     extends uvm_driver #(Item1_c);        // no protocol/role context at all
 ```
 
@@ -227,8 +227,8 @@ end
 
 **Correct Example:**
 ```
-mac_agents/mac_tx_driver_c.sv        -> class mac_tx_driver_c
-mac_agents/mac_tx_monitor_c.sv       -> class mac_tx_monitor_c
+mac_agents/axi_driver_c.sv        -> class axi_driver_c
+mac_agents/axi_monitor_c.sv       -> class axi_monitor_c
 mac_env/mac_scoreboard_c.sv          -> class mac_scoreboard_c
 mac_pkg.sv                           -> package mac_pkg;
 ```
@@ -374,10 +374,10 @@ if (crc_error)
 
 **Correct Example:**
 ```systemverilog
-task automatic send_frame(mac_tx_seq_item_c item);
+task automatic send_frame(axi_seq_item_c item);
   // Step 1: randomize the frame
   if (!item.randomize()) begin
-    `uvm_error("RAND_FAIL", "Failed to randomize mac_tx_seq_item_c")
+    `uvm_error("RAND_FAIL", "Failed to randomize axi_seq_item_c")
   end
 
   // Step 2: drive it onto the interface
@@ -394,9 +394,9 @@ endtask
 
 **Incorrect Example:**
 ```systemverilog
-task automatic send_frame(mac_tx_seq_item_c item);
+task automatic send_frame(axi_seq_item_c item);
    if (!item.randomize()) begin      
-    `uvm_error("RAND_FAIL", "Failed to randomize mac_tx_seq_item_c")
+    `uvm_error("RAND_FAIL", "Failed to randomize axi_seq_item_c")
    end     
 
 
@@ -459,8 +459,8 @@ endinterface
 
 **Correct Example:**
 ```systemverilog
-class mac_tx_driver_c extends uvm_driver #(mac_tx_seq_item_c);
-  `uvm_component_utils(mac_tx_driver_c)
+class axi_driver_c extends uvm_driver #(axi_seq_item_c);
+  `uvm_component_utils(axi_driver_c)
 
   virtual mac_if m_vif;
   int            m_frames_sent;
@@ -477,7 +477,7 @@ class mac_tx_driver_c extends uvm_driver #(mac_tx_seq_item_c);
     // ...
   endtask
 
-  extern task drive_frame(mac_tx_seq_item_c item);
+  extern task drive_frame(axi_seq_item_c item);
 endclass
 ```
 
@@ -601,7 +601,7 @@ end
  * @brief Drives TX-side MAC frames onto the DUT interface.
  *        Active primarily during the run_phase.
  */
-class mac_tx_driver extends uvm_driver #(mac_tx_seq_item);
+class axi_driver extends uvm_driver #(axi_seq_item);
 
   /**
    * @brief Waits until the DUT reset has been deasserted.
@@ -844,7 +844,7 @@ end
 
 **Correct Example:**
 ```systemverilog
-class mac_base_seq extends uvm_sequence #(mac_tx_seq_item);
+class mac_base_seq extends uvm_sequence #(axi_seq_item);
   `uvm_object_utils(mac_base_seq)
   mac_env_cfg m_cfg;
 
@@ -862,7 +862,7 @@ endclass
 
 **Incorrect Example:**
 ```systemverilog
-class mac_jumbo_frame_seq extends uvm_sequence #(mac_tx_seq_item);
+class mac_jumbo_frame_seq extends uvm_sequence #(axi_seq_item);
   // entire pre_body(), config lookup, and constraints copy-pasted
   // from three other sequences with only minor edits
 endclass
@@ -883,12 +883,12 @@ endclass
 
 **Correct Example:**
 ```systemverilog
-property mac_tx_ifg_p;
+property axi_ifg_p;
   @(posedge clk) disable iff (!reset_n)
   $fell(tx_valid) |-> ##[96:$] 1;
 endproperty
 
-mac_tx_ifg_a: assert property (mac_tx_ifg_p)
+axi_ifg_a: assert property (axi_ifg_p)
   else `uvm_error("IFG_VIOLATION", "Inter-frame gap below 96 bit-times")
 ```
 
@@ -969,7 +969,7 @@ endinterface
 ```
 
 ```systemverilog
-class mac_tx_monitor_c extends uvm_monitor;
+class axi_monitor_c extends uvm_monitor;
   virtual mac_if.monitor m_vif;   // monitor modport - cannot accidentally drive
 endclass
 ```
@@ -1026,9 +1026,9 @@ endfunction
 
 **Correct Example:**
 ```systemverilog
-// mac_tx_driver_c.sv
-class mac_tx_driver_c extends uvm_driver #(mac_tx_seq_item_c);
-  `uvm_component_utils(mac_tx_driver_c)
+// axi_driver_c.sv
+class axi_driver_c extends uvm_driver #(axi_seq_item_c);
+  `uvm_component_utils(axi_driver_c)
 
   virtual mac_if.driver m_vif;
   int                   m_frames_sent;
@@ -1036,27 +1036,27 @@ class mac_tx_driver_c extends uvm_driver #(mac_tx_seq_item_c);
   extern function new(string name, uvm_component parent);
   extern function void build_phase(uvm_phase phase);
   extern task          run_phase(uvm_phase phase);
-  extern task          drive_frame(mac_tx_seq_item_c item);
+  extern task          drive_frame(axi_seq_item_c item);
   extern task          wait_for_reset_deassertion();
 endclass
 
 
-function mac_tx_driver_c::new(string name, uvm_component parent);
+function axi_driver_c::new(string name, uvm_component parent);
   super.new(name, parent);
 endfunction
 
 
-function void mac_tx_driver_c::build_phase(uvm_phase phase);
+function void axi_driver_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
   if (!uvm_config_db#(virtual mac_if.driver)::get(this, "", "vif", m_vif))
     `uvm_fatal("NO_VIF", "virtual mac_if not set in config_db")
 endfunction
 
 
-task mac_tx_driver_c::run_phase(uvm_phase phase);
+task axi_driver_c::run_phase(uvm_phase phase);
   wait_for_reset_deassertion();
   forever begin
-    mac_tx_seq_item_c item;
+    axi_seq_item_c item;
     seq_item_port.get_next_item(item);
     drive_frame(item);
     seq_item_port.item_done();
@@ -1064,7 +1064,7 @@ task mac_tx_driver_c::run_phase(uvm_phase phase);
 endtask
 
 
-task mac_tx_driver_c::drive_frame(mac_tx_seq_item_c item);
+task axi_driver_c::drive_frame(axi_seq_item_c item);
   m_vif.cb_driver.tx_valid <= 1'b1;
   m_vif.cb_driver.tx_data  <= item.payload;
   @(m_vif.cb_driver);
@@ -1073,17 +1073,17 @@ task mac_tx_driver_c::drive_frame(mac_tx_seq_item_c item);
 endtask
 
 
-task mac_tx_driver_c::wait_for_reset_deassertion();
+task axi_driver_c::wait_for_reset_deassertion();
   @(posedge m_vif.reset_n);
 endtask
 ```
 
-**Why this helps a new engineer:** opening `mac_tx_driver_c.sv` and reading just the first ~10 lines (the class body) tells you *everything this driver can do* — `build_phase`, `run_phase`, `drive_frame`, `wait_for_reset_deassertion` — without needing to scroll past 80 lines of implementation to find out what methods exist.
+**Why this helps a new engineer:** opening `axi_driver_c.sv` and reading just the first ~10 lines (the class body) tells you *everything this driver can do* — `build_phase`, `run_phase`, `drive_frame`, `wait_for_reset_deassertion` — without needing to scroll past 80 lines of implementation to find out what methods exist.
 
 **Incorrect Example (methods buried inline, hard to scan):**
 ```systemverilog
-class mac_tx_driver_c extends uvm_driver #(mac_tx_seq_item_c);
-  `uvm_component_utils(mac_tx_driver_c)
+class axi_driver_c extends uvm_driver #(axi_seq_item_c);
+  `uvm_component_utils(axi_driver_c)
   virtual mac_if.driver m_vif;
   int m_frames_sent;
 
@@ -1101,7 +1101,7 @@ class mac_tx_driver_c extends uvm_driver #(mac_tx_seq_item_c);
     // 40 more lines here before you even see what drive_frame does...
   endtask
 
-  task drive_frame(mac_tx_seq_item_c item);
+  task drive_frame(axi_seq_item_c item);
     // ...
   endtask
   // by the time you reach here, you've lost track of the class's full API

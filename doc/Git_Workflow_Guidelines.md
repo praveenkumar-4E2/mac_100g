@@ -39,8 +39,8 @@
 ```
 100g_mac_vip/
 ├── agents/
-│   ├── mac_tx_agent/
-│   ├── mac_rx_agent/
+│   ├── axi_agent/
+│   ├── rs_agent/
 │   └── mac_rst_agent/
 ├── env/
 │   ├── mac_env_c.sv
@@ -298,7 +298,7 @@ Fixed the bug that Praveen found yesterday in the thing
 git add env/mac_scoreboard_c.sv
 git commit -m "fix(scoreboard): resolve queue leak on discarded frames"
 
-git add agents/mac_tx_agent/mac_tx_driver_c.sv
+git add agents/axi_agent/axi_driver_c.sv
 git commit -m "refactor(tx_agent): apply 2-space indentation per style guide"
 ```
 
@@ -326,10 +326,10 @@ git commit -m "fix bug and cleanup code"
 git status
 # On branch feature/VIP-142-jumbo-frame-support
 # Changes not staged for commit:
-#   modified:   agents/mac_tx_agent/mac_tx_driver_c.sv
+#   modified:   agents/axi_agent/axi_driver_c.sv
 # Untracked files:
 #   work/                <- caught correctly, will not be added
-git add agents/mac_tx_agent/mac_tx_driver_c.sv
+git add agents/axi_agent/axi_driver_c.sv
 git commit -m "feat(tx_agent): add jumbo frame randomization support"
 ```
 
@@ -379,7 +379,7 @@ git commit -s -m "feat(tx_agent): add jumbo frame randomization support"
 **Correct Example (PR description template):**
 ```markdown
 ## What changed
-Added jumbo frame randomization (up to 9000 bytes) to `mac_tx_driver_c`,
+Added jumbo frame randomization (up to 9000 bytes) to `axi_driver_c`,
 gated behind a new `enable_jumbo` config field.
 
 ## Why
@@ -436,7 +436,7 @@ Refs: VIP-165 (partial - remaining sequences to follow in a separate PR)
 make regress SUITE=sanity      # 120/120 PASSED
 make lint                       # 0 errors, 0 warnings
 git diff --stat origin/develop... HEAD
-#  agents/mac_tx_agent/mac_tx_driver_c.sv | 24 ++++++++++++++
+#  agents/axi_agent/axi_driver_c.sv | 24 ++++++++++++++
 #  seq/mac_jumbo_frame_seq_c.sv           | 18 ++++++++
 #  2 files changed - only the intended files
 ```
@@ -503,7 +503,7 @@ this looks wrong
 **Correct Example:**
 ```bash
 # after making the fix
-git add agents/mac_tx_agent/mac_tx_driver_c.sv
+git add agents/axi_agent/axi_driver_c.sv
 git commit -m "fix(tx_agent): exclude PAUSE ethertype from jumbo constraint"
 git push origin feature/VIP-142-jumbo-frame-support
 ```
@@ -524,7 +524,7 @@ git push --force origin feature/VIP-142-jumbo-frame-support
 
 **Steps to Follow (a walkthrough for someone doing this for the first time):**
 1. Update your branch against the base: `git fetch origin` then `git merge origin/develop` (or `git rebase origin/develop` if your branch is not shared with anyone else).
-2. Git will report conflicted files: `CONFLICT (content): Merge conflict in agents/mac_tx_agent/mac_tx_driver_c.sv`.
+2. Git will report conflicted files: `CONFLICT (content): Merge conflict in agents/axi_agent/axi_driver_c.sv`.
 3. Open the file — Git marks the conflict clearly:
    ```systemverilog
    <<<<<<< HEAD
@@ -539,27 +539,27 @@ git push --force origin feature/VIP-142-jumbo-frame-support
    ```
 5. Remove the `<<<<<<<`, `=======`, and `>>>>>>>` marker lines completely.
 6. Re-run the local sanity regression to make sure your resolution didn't break anything: `make regress SUITE=sanity`.
-7. Stage and complete the merge: `git add agents/mac_tx_agent/mac_tx_driver_c.sv` then `git commit` (for a merge) or `git rebase --continue` (for a rebase).
+7. Stage and complete the merge: `git add agents/axi_agent/axi_driver_c.sv` then `git commit` (for a merge) or `git rebase --continue` (for a rebase).
 8. Push: `git push origin feature/VIP-142-jumbo-frame-support` (add `--force-with-lease` only if you rebased).
 
 **Correct Example (full conflict resolution session):**
 ```bash
 git fetch origin
 git merge origin/develop
-# CONFLICT (content): Merge conflict in agents/mac_tx_agent/mac_tx_driver_c.sv
+# CONFLICT (content): Merge conflict in agents/axi_agent/axi_driver_c.sv
 # Automatic merge failed; fix conflicts and then commit the result.
 
 # ... open file, resolve as shown above, save ...
 
 make regress SUITE=sanity        # confirm still passing
-git add agents/mac_tx_agent/mac_tx_driver_c.sv
+git add agents/axi_agent/axi_driver_c.sv
 git commit
 git push origin feature/VIP-142-jumbo-frame-support
 ```
 
 **Incorrect Example:**
 ```bash
-git checkout --theirs agents/mac_tx_agent/mac_tx_driver_c.sv
+git checkout --theirs agents/axi_agent/axi_driver_c.sv
 git add .
 git commit -m "fixed conflict"
 # blindly discarded your own change without reading what it was
@@ -745,7 +745,7 @@ git commit -m "chore(coverage): archive milestone-4 coverage snapshot"
 **Correct Example:**
 ```bash
 git status
-# Changes not staged for commit: agents/mac_tx_agent/mac_tx_driver_c.sv
+# Changes not staged for commit: agents/axi_agent/axi_driver_c.sv
 git stash push -m "wip jumbo frame constraint"
 git checkout bugfix/VIP-158-pause-timer-reload
 # ... do the other work ...
@@ -860,10 +860,10 @@ make TEST=mac_sanity_test_c      # confirm environment is healthy before startin
 **Correct Example (end-of-day sequence):**
 ```bash
 git status
-git diff agents/mac_tx_agent/mac_tx_driver_c.sv
+git diff agents/axi_agent/axi_driver_c.sv
 
 # work is in a good, committable state:
-git add agents/mac_tx_agent/mac_tx_driver_c.sv
+git add agents/axi_agent/axi_driver_c.sv
 git commit -m "feat(tx_agent): add jumbo frame randomization support
 
 Refs: VIP-142"
