@@ -46,6 +46,9 @@ module apb_regs #(
   output logic [15:0] cfg_pause_quanta,
   output logic [15:0] cfg_max_frame_size,
   output logic [15:0] cfg_min_frame_size,
+  output logic [2:0]  cfg_mac_speed,
+  output logic        cfg_speed_override,
+  input  logic [2:0]  effective_mac_speed,
   output logic [GROUP_COUNT-1:0][47:0] cfg_group_addr,
   output logic [GROUP_COUNT-1:0]       cfg_group_valid,
   output logic        status_request,
@@ -112,6 +115,9 @@ module apb_regs #(
   logic [15:0] cfg_max_client_data_apb;
   logic [15:0] cfg_max_frame_size_apb;
   logic [15:0] cfg_min_frame_size_apb;
+  logic [2:0]  cfg_mac_speed_apb;
+  logic        cfg_speed_override_apb;
+  logic [2:0]  effective_mac_speed_apb;
   logic [GROUP_COUNT-1:0][47:0] cfg_group_addr_apb;
   logic [GROUP_COUNT-1:0]       cfg_group_valid_apb;
   logic [47:0] cfg_group_addr_apb_array [GROUP_COUNT];
@@ -188,6 +194,10 @@ module apb_regs #(
     .cfg_min_frame_size_apb (cfg_min_frame_size_apb),
     .cfg_group_addr_apb   (cfg_group_addr_apb),
     .cfg_group_valid_apb  (cfg_group_valid_apb),
+    .cfg_mac_speed        (cfg_mac_speed),
+    .cfg_speed_override   (cfg_speed_override),
+    .cfg_mac_speed_apb    (cfg_mac_speed_apb),
+    .cfg_speed_override_apb (cfg_speed_override_apb),
     .cfg_pause_tx_enable  (cfg_pause_tx_enable),
     .cfg_pause_tx_soft_req(cfg_pause_tx_soft_req),
     .cfg_pause_quanta     (cfg_pause_quanta)
@@ -306,6 +316,28 @@ module apb_regs #(
                       status_snapshot[0] })
   );
 
+  // W4: effective (deferred) speed exposed to software; synced to the APB
+  // domain so REG_MAC_SPEED_CONFIG readback distinguishes programmed speed
+  // (bits [2:0]) from the active effective speed (bits [6:4]).
+  cdc_2ff effective_speed_sync_0 (
+    .clk_dst    (apb_clk),
+    .rst_dst    (apb_rst),
+    .signal_src (effective_mac_speed[0]),
+    .signal_dst (effective_mac_speed_apb[0])
+  );
+  cdc_2ff effective_speed_sync_1 (
+    .clk_dst    (apb_clk),
+    .rst_dst    (apb_rst),
+    .signal_src (effective_mac_speed[1]),
+    .signal_dst (effective_mac_speed_apb[1])
+  );
+  cdc_2ff effective_speed_sync_2 (
+    .clk_dst    (apb_clk),
+    .rst_dst    (apb_rst),
+    .signal_src (effective_mac_speed[2]),
+    .signal_dst (effective_mac_speed_apb[2])
+  );
+
   always_comb begin
     //==========================================================================
     // Address decode — command ready
@@ -337,6 +369,8 @@ module apb_regs #(
       REG_MAX_CLIENT_DATA:       prdata = { 16'b0, cfg_max_client_data_apb };
       REG_MAX_FRAME_SIZE:        prdata = { 16'b0, cfg_max_frame_size_apb };
       REG_MIN_FRAME_SIZE:        prdata = { 16'b0, cfg_min_frame_size_apb };
+      REG_MAC_SPEED_CONFIG:      prdata = { 25'b0, effective_mac_speed_apb,
+                                            cfg_speed_override_apb, cfg_mac_speed_apb };
       REG_OVERSIZE_CONTROL:      prdata = cfg_control_apb & 32'h40;
       REG_PAUSE_CONTROL:         prdata = cfg_control_apb & 32'h30;
       REG_PAUSE_STATUS:          prdata = status_snapshot[5];

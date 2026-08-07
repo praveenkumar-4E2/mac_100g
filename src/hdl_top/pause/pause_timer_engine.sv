@@ -82,6 +82,18 @@ module pause_timer_engine #(
     end
   end
 
+  `ifndef SYNTHESIS
+    // W4: the PAUSE countdown is in bit-times (Annex 31B.2), which is speed
+    // invariant; the speed input is consumed as a validity check so the
+    // effective-speed wiring cannot silently disconnect.
+    property speed_supported_on_load;
+      @(posedge clk) disable iff (rst)
+        load_valid |-> (speed <= 3'b100);
+    endproperty
+    assert property (speed_supported_on_load)
+      else $error("pause_timer_engine: reserved speed encoding on PAUSE load");
+  `endif
+
 endmodule
 
 `default_nettype wire

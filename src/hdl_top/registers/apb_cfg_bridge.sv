@@ -40,7 +40,11 @@ module apb_cfg_bridge #(
   output logic [GROUP_COUNT-1:0]       cfg_group_valid_apb,
   output logic                        cfg_pause_tx_enable,
   output logic                        cfg_pause_tx_soft_req,
-  output logic [15:0]                 cfg_pause_quanta
+  output logic [15:0]                 cfg_pause_quanta,
+  output logic [2:0]                  cfg_mac_speed,
+  output logic                        cfg_speed_override,
+  output logic [2:0]                  cfg_mac_speed_apb,
+  output logic                        cfg_speed_override_apb
 );
 
   //============================================================================
@@ -72,7 +76,7 @@ module apb_cfg_bridge #(
   // Clock     : apb_clk / mac_clk — asynchronous domains
   //============================================================================
 
-  localparam int unsigned WIDTH = 96 + 49 * GROUP_COUNT + 32 + 18;  // 32 frame-size + 18 PAUSE TX config bits
+  localparam int unsigned WIDTH = 96 + 49 * GROUP_COUNT + 32 + 18 + 4;  // +4 speed config bits
 
   logic write_pulse;
   logic pending;
@@ -101,8 +105,8 @@ module apb_cfg_bridge #(
     .cfg_pause_tx_soft_req(cfg_pause_tx_soft_req_apb),
     .cfg_pause_quanta     (cfg_pause_quanta_apb),
     .cfg_promiscuous_mode (),
-    .cfg_mac_speed        (),
-    .cfg_speed_override   (),
+    .cfg_mac_speed        (cfg_mac_speed_apb),
+    .cfg_speed_override   (cfg_speed_override_apb),
     .cfg_max_frame_size   (cfg_max_frame_size_apb),
     .cfg_min_frame_size   (cfg_min_frame_size_apb),
     .cfg_group_addr       (cfg_group_addr_apb),
@@ -110,6 +114,8 @@ module apb_cfg_bridge #(
   );
 
   assign bundle = {
+    cfg_mac_speed_apb,
+    cfg_speed_override_apb,
     cfg_pause_quanta_apb,
     cfg_pause_tx_soft_req_apb,
     cfg_pause_tx_enable_apb,
@@ -165,11 +171,15 @@ module apb_cfg_bridge #(
       cfg_pause_tx_enable    <= 1'b0;
       cfg_pause_tx_soft_req  <= 1'b0;
       cfg_pause_quanta       <= 16'h0;
+      cfg_mac_speed          <= 3'b100;  // Default: 100G (REG_MAC_SPEED_CONFIG encoding)
+      cfg_speed_override     <= 1'b0;
       cfg_group_addr     <= '0;
       cfg_group_valid    <= '0;
     end else if (valid) begin
       cfg_update         <= ~cfg_update;
-      { cfg_pause_quanta,
+      { cfg_mac_speed,
+        cfg_speed_override,
+        cfg_pause_quanta,
         cfg_pause_tx_soft_req,
         cfg_pause_tx_enable,
         cfg_group_valid,

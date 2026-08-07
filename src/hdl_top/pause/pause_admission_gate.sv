@@ -30,6 +30,7 @@ module pause_admission_gate #(
   output logic        control_admit,
   input  logic        timing_quantum_tick,
   input  logic        new_data_frame_start,
+  input  logic [2:0]  speed,  // Effective MAC speed (000=10G..100=100G)
   output logic        timing_check_active,
   output logic        timing_check_pass,
   output logic        timing_check_violation,
@@ -69,6 +70,13 @@ module pause_admission_gate #(
   // MAX_START_DELAY_QUANTA = 394 (100G per 802.3ba Table 4-2): max quanta before first frame start
   //============================================================================
 
+  // MAX_START_DELAY = pause_delay_for_speed(effective_speed) — the maximum
+  // time (bit-times) allowed before the first data frame starts after a PAUSE
+  // frame (802.3ba Clause 4 Table 4-2: 394 @10G/25G, 118 @40G/50G, 60 @100G).
+  import mac_speed_params_pkg::*;
+  logic [9:0] max_start_delay;
+  assign max_start_delay = 10'(pause_delay_for_speed(int'(speed)));
+
   always_comb begin
     data_admit       = !paused;
     control_admit    = 1'b1;
@@ -93,16 +101,16 @@ module pause_admission_gate #(
       end else if (timing_check_active) begin
         if (new_data_frame_start) begin
           timing_check_active <= 1'b0;
-          if (timing_elapsed_quanta <= MAX_START_DELAY_QUANTA) begin
+          if (timing_elapsed_quanta <= max_start_delay) begin
             timing_check_pass <= 1'b1;
             // COVER: PAUSE timing check passed
           end else begin
             timing_check_violation <= 1'b1;
             // COVER: PAUSE timing check violated
-            // ASSERT: First data frame must start within MAX_START_DELAY_QUANTA
+            // ASSERT: First data frame must start within max_start_delay
           end
         end else if (timing_quantum_tick &&
-                     (timing_elapsed_quanta < 10'(MAX_START_DELAY_QUANTA + 1))) begin
+                     (timing_elapsed_quanta < 10'(max_start_delay + 1'b1))) begin
           timing_elapsed_quanta <= timing_elapsed_quanta + 1'b1;
         end
       end

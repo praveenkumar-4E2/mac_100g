@@ -74,6 +74,11 @@ module rx_axi4_stream_adapter #(
 
   // mac_if to AXI4-Stream mapping
   // eop → tlast, error → tuser[0], fcs_valid → tuser[1]
+  // W5 (accepted-frame-only policy): mac_error is driven zero at mac_top for
+  // every delivered frame (dropped/malformed frames never reach the client
+  // stream), and mac_fcs_valid is driven zero (the wire FCS is stripped), so
+  // m_tuser = 0 for all delivered beats — documented in
+  // docs/interface/axi4-stream_adapter.md.
   assign mac_ready = m_tready;
   assign m_tdata   = mac_data;
   assign m_tvalid  = mac_valid;
@@ -84,8 +89,45 @@ module rx_axi4_stream_adapter #(
   // final beat is forwarded so tkeep reflects only valid bytes.
   assign m_tkeep = mac_eop ? mac_keep : {KEEP_WIDTH{1'b1}};
 
+  `ifndef SYNTHESIS
+    // W6: AXI RX data, keep, last, and user must be stable while the sink
+    // stalls the master (m_tvalid && !m_tready).
+    property rx_source_stable_while_stalled;
+      @(posedge clk) disable iff (rst)
+        m_tvalid && !m_tready |=>
+          m_tvalid && $stable({ m_tdata, m_tkeep, m_tlast, m_tuser });
+    endproperty
+    assert property (rx_source_stable_while_stalled)
+      else $error("rx_axi4_stream_adapter: RX sideband/data changed while stalled");
+
+    // W6: a delivered AXI RX frame carries one constant tuser value from the
+    // first beat to the accepted final beat — no live status pulse may appear
+    // as sideband. Under the accepted-frame-only policy m_tuser is zero.
+    logic [7:0] frame_first_tuser_q;
+    logic       frame_in_flight_q;
+    always_ff @(posedge clk) begin
+      if (rst) begin
+        frame_first_tuser_q <= '0;
+        frame_in_flight_q   <= 1'b0;
+      end else begin
+        if (m_tvalid && m_tready && mac_sop) begin
+          frame_first_tuser_q <= m_tuser;
+          frame_in_flight_q   <= 1'b1;
+        end
+        if (m_tvalid && m_tready && m_tlast)
+          frame_in_flight_q <= 1'b0;
+      end
+    end
+    property rx_tuser_constant_through_frame;
+      @(posedge clk) disable iff (rst)
+        m_tvalid && m_tready && m_tlast && !mac_sop && frame_in_flight_q
+        |-> (m_tuser == frame_first_tuser_q);
+    endproperty
+    assert property (rx_tuser_constant_through_frame)
+      else $error("rx_axi4_stream_adapter: RX tuser changed within a frame");
+  `endif
+
   // COVER: AXI4-Stream frame received
-  // ASSERT: Backpressure must not corrupt frame
 
 endmodule
 

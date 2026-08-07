@@ -72,6 +72,13 @@ package reg_map_pkg;
   // REG_MAC_SPEED_CONFIG bit positions (IEEE 802.3 Clause 4, Table 4-2)
   localparam bit SPEED_OVERRIDE_BIT = 3;
   // Bits [2:0]: mac_speed — 3'b000=10G, 3'b001=25G, 3'b010=40G, 3'b011=50G, 3'b100=100G
+  //             3'b101..3'b111 reserved (programmed value rejected: falls back to 100G)
+  // Bit 3: speed_override - 1 = apply programmed mac_speed to active logic
+  // Bits [6:4]: effective_mac_speed readback - the speed currently applied to
+  //             active TX logic (matches programmed value after an idle-TX
+  //             boundary; a write during an active TX frame applies at the
+  //             next idle boundary, so programmed [2:0] may differ from
+  //             effective [6:4] until then
 
   //----------------------------------------------------------------------------
   // Function: group_low_addr

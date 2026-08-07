@@ -206,7 +206,7 @@ module tx_frame_builder #(
     out_valid   = (state == EMIT) && (remaining > 0);
     out_sop     = out_valid && (beat_index == '0);
     out_eop     = out_valid && (remaining <= 64);
-    out_eop_pos = beat_bytes[EOP_POS_W-1:0];
+    out_eop_pos = out_eop ? beat_bytes[EOP_POS_W-1:0] : '0;
     out_keep    = keep_mask(beat_bytes);
     out_error   = 1'b0;
     out_data    = '0;

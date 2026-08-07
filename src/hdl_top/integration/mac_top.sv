@@ -222,13 +222,51 @@ module mac_top #(
   logic cfg_group_valid_array [GROUP_TABLE_SIZE];
   genvar group_index;
 
-  // Default speed: 100G (3'b100). CDC bridge integration deferred to T-4-V
-  assign cfg_mac_speed = 3'b100;
+  // W4: cfg_mac_speed / cfg_speed_override arrive from the APB config bridge
+  // (see apb_regs_if); effective_mac_speed applies them at an idle TX boundary.
+  logic [2:0] effective_mac_speed;
+
+  // W2: TX admission controller signals (AXI mode)
+  logic        tx_pipeline_req_ready;
+  logic        tx_admission_start;
+  logic        tx_axi_frame_active;
+
+  // W2: TX client stream interface and PAUSE admission gate output. Declared
+  // before g_axi4_adapters: instance port connections to names that are first
+  // used inside a generate block and declared only later bind to implicit
+  // phantom nets under `default_nettype none, silently leaving ports z.
+  mac_if tx_client_if (
+    .clk (mac_clk),
+    .rst (mac_rst)
+  );
+
+  logic data_admit;
+
   // cfg_max_frame_size and cfg_min_frame_size driven by apb_regs
 
   logic        status_request;
   logic        status_ack;
   logic [31:0] status_snapshot [STATUS_WORDS];
+
+  //============================================================================
+  // Effective MAC speed (W4)
+  //============================================================================
+  // Deferred-update policy: the programmed speed is applied only at an idle
+  // TX boundary (pipeline not busy, no AXI frame in flight). Reserved speed
+  // encodings (3'b101..3'b111) fall back to 100G. cfg_speed_override==0 keeps
+  // the reset default (100G). Software can distinguish programmed (bridge
+  // cfg_mac_speed) from effective (effective_mac_speed, exposed in
+  // REG_MAC_SPEED_CONFIG readback) values.
+  always_ff @(posedge mac_clk) begin
+    if (mac_rst) begin
+      effective_mac_speed <= 3'b100;  // REG_MAC_SPEED_CONFIG encoding: 100G
+    end else if (cfg_speed_override && !tx_busy && !tx_axi_frame_active) begin
+      if (cfg_mac_speed > 3'b100)
+        effective_mac_speed <= 3'b100;  // reserved encoding fallback
+      else
+        effective_mac_speed <= cfg_mac_speed;
+    end
+  end
 
   //============================================================================
   // AXI4-Stream Adapters (active when USE_AXI4=1)
@@ -255,8 +293,6 @@ module mac_top #(
 
   generate
     if (USE_AXI4) begin : g_axi4_adapters
-      assign tx_mac_ready = tx_client_if.ready;
-
       tx_axi4_stream_adapter #(
         .DATA_WIDTH (DATA_WIDTH),
         .KEEP_WIDTH (KEEP_WIDTH),
@@ -279,6 +315,45 @@ module mac_top #(
         .mac_eop_pos    (tx_mac_eop_pos),
         .mac_error      (tx_mac_error),
         .mac_fcs_present(tx_mac_fcs_present)
+      );
+
+      // W2: TX admission controller — the AXI first-beat handshake is the
+      // only AXI-mode admission point. It gates first-beat tready on TX
+      // enable, PAUSE permission, pipeline request readiness, and idle frame
+      // state; subsequent beats follow capture capacity (tx_client_if.ready).
+      tx_axi_admission #(
+        .DATA_WIDTH (DATA_WIDTH),
+        .KEEP_WIDTH (KEEP_WIDTH),
+        .EOP_POS_W  (EOP_POS_W)
+      ) tx_admission_inst (
+        .clk                (mac_clk),
+        .rst                (mac_rst),
+        .s_valid            (tx_mac_valid),
+        .s_data             (tx_mac_data),
+        .s_keep             (tx_mac_keep),
+        .s_sop              (tx_mac_sop),
+        .s_eop              (tx_mac_eop),
+        .s_eop_pos          (tx_mac_eop_pos),
+        .s_error            (tx_mac_error),
+        .s_fcs_present      (tx_mac_fcs_present),
+        .s_ready            (tx_mac_ready),
+        .c_valid            (tx_client_if.valid),
+        .c_data             (tx_client_if.data),
+        .c_keep             (tx_client_if.keep),
+        .c_sop              (tx_client_if.sop),
+        .c_eop              (tx_client_if.eop),
+        .c_eop_pos          (tx_client_if.eop_pos),
+        .c_error            (tx_client_if.error),
+        .c_fcs_present      (tx_client_if.fcs_present),
+        .c_ready            (tx_client_if.ready),
+        .tx_enabled         (cfg_control[CTRL_TX_BIT]),
+        .pause_admit        (data_admit),
+        .pipeline_req_ready (tx_pipeline_req_ready),
+        .dest_addr          (tx_dest_addr),
+        .src_addr           (tx_src_addr),
+        .length_type        (tx_length_type),
+        .start_capture      (tx_admission_start),
+        .frame_active       (tx_axi_frame_active)
       );
 
       rx_axi4_stream_adapter #(
@@ -312,6 +387,11 @@ module mac_top #(
       assign m_axis_rx_tvalid = 1'b0;
       assign m_axis_rx_tlast  = 1'b0;
       assign m_axis_rx_tuser  = '0;
+
+      // W2: scalar mode keeps its legacy tx_start admission path; the AXI
+      // admission controller is unused.
+      assign tx_admission_start   = 1'b0;
+      assign tx_axi_frame_active  = 1'b0;
 
       // Connect scalar ports directly to internal signals
       assign tx_mac_valid    = tx_client_valid;
@@ -383,7 +463,6 @@ module mac_top #(
   logic        pause_pending;
   logic [15:0] pause_timer_load_time;
   logic [24:0] pause_remaining;
-  logic        data_admit;
   logic        control_admit;
   logic        data_request_ready;
   logic        control_request_ready;
@@ -454,6 +533,9 @@ module mac_top #(
     .cfg_max_client_data         (cfg_max_client_data),
     .cfg_max_frame_size          (cfg_max_frame_size),
     .cfg_min_frame_size          (cfg_min_frame_size),
+    .cfg_mac_speed               (cfg_mac_speed),
+    .cfg_speed_override          (cfg_speed_override),
+    .effective_mac_speed         (effective_mac_speed),
     .cfg_group_addr              (cfg_group_addr),
     .cfg_group_valid             (cfg_group_valid),
     .cfg_pause_tx_enable         (cfg_pause_tx_enable),
@@ -603,35 +685,27 @@ module mac_top #(
       assign rx_mac_sop       = control_client_sop;
       assign rx_mac_eop       = control_client_eop;
       assign rx_mac_eop_pos   = control_client_eop_pos;
-      assign rx_mac_error     = rx_frame_drop;
-      // The client stream never carries the wire FCS (rx_frame_emit
-      // strips it), so tuser[1] (fcs_present) reflects the delivered
-      // stream truthfully; CRC status is carried by rx_mac_error.
-      assign rx_mac_fcs_valid = rx_client_if.fcs_present;
+      // W5 (accepted-frame-only policy): rx_frame_emit suppresses dropped or
+      // malformed frames before they reach the client stream, so a delivered
+      // AXI RX frame never carries an error. CRC/length/alignment/filter
+      // outcomes surface on the dedicated status outputs/counters instead.
+      assign rx_mac_error     = 1'b0;
+      // The delivered stream never carries the wire FCS (rx_frame_emit
+      // strips it), so m_tuser[1] is documented as reserved-zero and driven 0.
+      assign rx_mac_fcs_valid = 1'b0;
     end else begin : g_rx_mac_scalar
       assign rx_mac_ready    = rx_client_ready;
     end
   endgenerate
-
-  mac_if tx_client_if (
-    .clk (mac_clk),
-    .rst (mac_rst)
-  );
 
   // The external top-level pins remain a compatibility shell.  All active
   // internal TX data transport crosses this interface boundary.
   // When USE_AXI4=1, the adapter's mac_if outputs override scalar ports.
   generate
     if (USE_AXI4) begin : g_tx_if_axi4
-      // AXI4-Stream adapter drives the mac_if when USE_AXI4=1
-      assign tx_client_if.valid       = tx_mac_valid;
-      assign tx_client_if.data        = tx_mac_data;
-      assign tx_client_if.keep        = tx_mac_keep;
-      assign tx_client_if.sop         = tx_mac_sop;
-      assign tx_client_if.eop         = tx_mac_eop;
-      assign tx_client_if.eop_pos     = tx_mac_eop_pos;
-      assign tx_client_if.error       = tx_mac_error;
-      assign tx_client_if.fcs_present = tx_mac_fcs_present;
+      // W2: tx_client_if is driven by the tx_axi_admission controller in
+      // g_axi4_adapters (first-beat gated by admission, interior beats by
+      // capture capacity). The scalar ready port is unused in AXI mode.
       assign tx_client_ready          = 1'b0;  // scalar port unused in AXI4 mode
     end else begin : g_tx_if_scalar
       // Scalar ports drive the mac_if
@@ -668,7 +742,7 @@ module mac_top #(
     .load_valid         (pause_timer_load),
     .load_time          (pause_timer_load_time),
     .bit_time_tick      (rx_tick),
-    .speed              (cfg_mac_speed),
+    .speed              (effective_mac_speed),
     .paused             (pause_data_active),
     .timer_done         (pause_timer_done),
     .remaining_bit_times (pause_remaining)
@@ -680,7 +754,7 @@ module mac_top #(
     .paused                 (pause_data_active),
     .pause_event_accepted   (pause_event_accepted),
     .pause_time             (pause_timer_load_time),
-    .data_req_valid         (tx_start),
+    .data_req_valid         (USE_AXI4 ? (s_axis_tx_tvalid && !tx_axi_frame_active) : tx_start),
     .data_req_ready         (data_request_ready),
     .data_frame_active      (tx_busy),
     .data_frame_done        (tx_frame_done),
@@ -689,7 +763,8 @@ module mac_top #(
     .data_admit             (data_admit),
     .control_admit          (control_admit),
     .timing_quantum_tick    (rx_tick),
-    .new_data_frame_start   (tx_start && data_admit),
+    .new_data_frame_start   (USE_AXI4 ? (tx_admission_start && data_admit) : (tx_start && data_admit)),
+    .speed                  (effective_mac_speed),
     .timing_check_active    (/* open */),
     .timing_check_pass      (/* open */),
     .timing_check_violation (/* open */),
@@ -714,8 +789,9 @@ module mac_top #(
   ) tx_inst (
     .clk              (mac_clk),
     .rst              (mac_rst),
-    .start            (tx_start && data_admit && cfg_control[0]),
-    .req_ready        (/* open */),
+    .start            (USE_AXI4 ? tx_admission_start
+                                : (tx_start && data_admit && cfg_control[CTRL_TX_BIT])),
+    .req_ready        (tx_pipeline_req_ready),
     .dest_addr        (tx_dest_addr),
     .src_addr         (tx_src_addr),
     .length_type      (tx_length_type),
@@ -723,7 +799,7 @@ module mac_top #(
     .carrier_sense    (cfg_control[3]),
     .collision_detect (1'b0),
     .tick             (tx_tick),
-    .speed            (cfg_mac_speed),
+    .speed            (effective_mac_speed),
     .out_valid        (arb_data_valid),
     .out_ready        (arb_data_ready),
     .out_data         (arb_data_sop_data),
@@ -919,10 +995,26 @@ module mac_top #(
         assert (!(rx_client_valid && !cfg_control[0]));
         assert (!(control_event_valid && control_length_type != ETHERTYPE_MAC_CONTROL));
         assert (!(rx_client_valid && control_length_type == ETHERTYPE_MAC_CONTROL));
-        // ASSERT: speed register must not change during active frame
-        assert (!(tx_busy && cfg_mac_speed != 3'b100));
       end
     end
+
+    // W4: effective speed must be stable during an active TX frame
+    // (deferred-update policy protects timing configuration mid-frame).
+    property effective_speed_stable_when_tx_busy;
+      @(posedge mac_clk) disable iff (mac_rst)
+        tx_busy |=> $stable(effective_mac_speed);
+    endproperty
+    assert property (effective_speed_stable_when_tx_busy)
+      else $error("mac_top: effective speed changed while TX frame active");
+
+    // W4: reserved speed encodings are rejected at the effective boundary.
+    property reserved_speed_rejected;
+      @(posedge mac_clk) disable iff (mac_rst)
+        cfg_speed_override && !tx_busy && !tx_axi_frame_active && (cfg_mac_speed > 3'b100)
+        |-> (effective_mac_speed == 3'b100);
+    endproperty
+    assert property (reserved_speed_rejected)
+      else $error("mac_top: reserved speed encoding reached active logic");
   `endif
 
 endmodule
