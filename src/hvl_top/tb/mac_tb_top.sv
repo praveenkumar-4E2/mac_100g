@@ -7,7 +7,6 @@ module mac_tb_top;
   `include "uvm_macros.svh"
   import uvm_pkg::*;
   import mac_test_pkg::*;
-  import rs_globals_pkg::*;
 
   //============================================================================
   // Clocks & reset
@@ -213,6 +212,13 @@ module mac_tb_top;
   assign tx_client_eop_pos     = '0;
   assign tx_client_fcs_present = 1'b0;
 
+  // W3: the legacy scalar tx_start pin is inactive in AXI4-Stream mode.
+  // Frame admission is owned entirely by the DUT's TX admission controller
+  // (tx_axi_admission), which pulses the internal scheduler start from the
+  // AXI first-beat presentation when TX enable, PAUSE, IPG, and pipeline
+  // readiness permit. No testbench signal may generate an admission pulse.
+  assign tx_start = 1'b0;
+
   // RX-side AXI slave: always accept frames from the DUT.
   assign axi_rx_if.tready = 1'b1;
 
@@ -299,35 +305,6 @@ module mac_tb_top;
       tick_cnt <= tick_cnt + 1'b1;
       tx_tick  <= (tick_cnt == 2'd3);
       rx_tick  <= (tick_cnt == 2'd3);
-    end
-  end
-
-  //============================================================================
-  // TX start pulse generation for the AXI4-Stream path.
-  //
-  // The DUT's TX scheduler admits a frame only while `start` is high
-  // (start && request_ready && ipg_done, mac_top.sv:711), and the scalar
-  // tx_start pin is not driven by the AXI adapter. Drive tx_start high while
-  // a frame is pending at the AXI interface (held until the first beat
-  // handshake so late admission after IPG still works), and track frame
-  // activity from the AXI handshake.
-  //============================================================================
-  logic tx_frame_active;
-
-  always @(posedge mac_clk) begin
-    if (mac_rst) begin
-      tx_start        <= 1'b0;
-      tx_frame_active <= 1'b0;
-    end else begin
-      tx_start <= 1'b0;
-      if (axi_tx_if.tvalid && !tx_frame_active)
-        tx_start <= 1'b1;  // frame pending: request admission
-      if (axi_tx_if.tvalid && axi_tx_if.tready) begin
-        if (axi_tx_if.tlast)
-          tx_frame_active <= 1'b0;
-        else
-          tx_frame_active <= 1'b1;
-      end
     end
   end
 

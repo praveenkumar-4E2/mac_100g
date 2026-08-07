@@ -26,7 +26,8 @@
  * assignments issued after @(posedge clk) (landing in the same
  * edge's NBA region), and ready is sampled with #1step so the
  * drive/sample points match the MAC's own view of the bus.
- * Protocol field sizes come from the global rs_globals_pkg; beat
+ * Protocol field sizes come from the façade-owned
+ * mac_hvl_constants.svh (migrated from rs_globals_pkg); beat
  * geometry comes from the mac_if parameters.
  */
 
@@ -181,39 +182,39 @@ task rs_driver_c::drive_frame(frame_xtn_c item);
   bit            fcs_present;
   logic [15:0]   ether_type;
 
-  frame_size = RS_PREAMBLE_SFD_BYTES + RS_HDR_BYTES + item.payload.size() +
-               (item.insert_fcs ? RS_FCS_BYTES : 0);
+  frame_size = mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_HDR_BYTES + item.payload.size() +
+               (item.insert_fcs ? mac_test_pkg::RS_FCS_BYTES : 0);
   frame_q    = new[frame_size];
 
   // Preamble (7 x 0x55) and SFD (0xD5)
-  for (int i = 0; i < RS_PREAMBLE_BYTES; i++)
-    frame_q[i] = item.preamble[RS_PREAMBLE_BYTES * 8 - 1 - 8*i -: 8];
-  frame_q[RS_PREAMBLE_BYTES] = item.sfd;
+  for (int i = 0; i < mac_test_pkg::RS_PREAMBLE_BYTES; i++)
+    frame_q[i] = item.preamble[mac_test_pkg::RS_PREAMBLE_BYTES * 8 - 1 - 8*i -: 8];
+  frame_q[mac_test_pkg::RS_PREAMBLE_BYTES] = item.sfd;
 
   // Ethernet header: DA, SA, ether_type (big-endian)
-  for (int i = 0; i < RS_DA_BYTES; i++)
-    frame_q[RS_PREAMBLE_SFD_BYTES + i] = item.dst_addr[47 - 8*i -: 8];
-  for (int i = 0; i < RS_SA_BYTES; i++)
-    frame_q[RS_PREAMBLE_SFD_BYTES + RS_DA_BYTES + i] = item.src_addr[47 - 8*i -: 8];
+  for (int i = 0; i < mac_test_pkg::RS_DA_BYTES; i++)
+    frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + i] = item.dst_addr[47 - 8*i -: 8];
+  for (int i = 0; i < mac_test_pkg::RS_SA_BYTES; i++)
+    frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_DA_BYTES + i] = item.src_addr[47 - 8*i -: 8];
 
   // length_error injection: override ether_type with a length
   // value mismatched with the counted payload => invalid_length.
   ether_type = (item.length_error && cfg_h.enable_error_injection) ?
-               item.payload.size() - RS_LEN_ERR_OFFSET : item.ether_type;
-  frame_q[RS_PREAMBLE_SFD_BYTES + RS_HDR_BYTES - 2] = ether_type[15:8];
-  frame_q[RS_PREAMBLE_SFD_BYTES + RS_HDR_BYTES - 1] = ether_type[7:0];
+               item.payload.size() - mac_test_pkg::RS_LEN_ERR_OFFSET : item.ether_type;
+  frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_HDR_BYTES - 2] = ether_type[15:8];
+  frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_HDR_BYTES - 1] = ether_type[7:0];
 
   // Payload
-  foreach (item.payload[i]) frame_q[RS_MIN_FRAME_BYTES + i] = item.payload[i];
+  foreach (item.payload[i]) frame_q[mac_test_pkg::RS_MIN_FRAME_BYTES + i] = item.payload[i];
 
   // FCS (LSB-first on the wire: fcs[7:0] first), only when insert_fcs
   // is set. This matches the DUT TX emission order and makes the DUT
   // RX residue check (rx_crc_check, CRC32_RESIDUE over DA..FCS) pass.
   if (item.insert_fcs) begin
-    frame_q[frame_size - RS_FCS_BYTES + 0] = item.fcs[7:0];
-    frame_q[frame_size - RS_FCS_BYTES + 1] = item.fcs[15:8];
-    frame_q[frame_size - RS_FCS_BYTES + 2] = item.fcs[23:16];
-    frame_q[frame_size - RS_FCS_BYTES + 3] = item.fcs[31:24];
+    frame_q[frame_size - mac_test_pkg::RS_FCS_BYTES + 0] = item.fcs[7:0];
+    frame_q[frame_size - mac_test_pkg::RS_FCS_BYTES + 1] = item.fcs[15:8];
+    frame_q[frame_size - mac_test_pkg::RS_FCS_BYTES + 2] = item.fcs[23:16];
+    frame_q[frame_size - mac_test_pkg::RS_FCS_BYTES + 3] = item.fcs[31:24];
   end
 
   fcs_present = item.insert_fcs;

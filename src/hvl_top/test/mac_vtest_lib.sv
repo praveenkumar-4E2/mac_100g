@@ -197,13 +197,27 @@ task tx_base_test_c::run_stimulus(uvm_phase phase);
   axi_sequence_c seq_h;
   int            sent_cnt;
   int            wire_cnt;
+  bit            completed;
 
   seq_h = axi_sequence_c::type_id::create("seq_h");
   seq_h.start(env_h.axi_agent_top_h.active_agents[0].sequencer_h);
 
-  // Allow the DUT TX path to process the frames and emit them on the
-  // wire before checking the counters.
-  #1us;
+  // W3: monitor DUT TX completion instead of a fixed settle delay. The AXI
+  // agent counts each accepted frame; the passive RS agent on mac_tx_out_if
+  // counts frames on the wire. Wait until all frames hit the wire, bounded
+  // by a timeout so a stalled DUT fails the test instead of hanging it.
+  completed = 1'b0;
+  repeat (5000) begin  // 5000 * 100ns = 500us bounded timeout
+    if (rs_agent_cfg_c::mon_rcvd_xtn_cnt >= num_tx_frames &&
+        axi_agent_cfg_c::mon_rcvd_xtn_cnt >= num_tx_frames) begin
+      completed = 1'b1;
+      break;
+    end
+    #100ns;
+  end
+  if (!completed)
+    `uvm_error("TEST", $sformatf("TX TIMEOUT: only %0d of %0d frames reached the wire",
+                                 rs_agent_cfg_c::mon_rcvd_xtn_cnt, num_tx_frames))
 
   sent_cnt = axi_agent_cfg_c::drv_data_sent_cnt;
   wire_cnt = rs_agent_cfg_c::mon_rcvd_xtn_cnt;

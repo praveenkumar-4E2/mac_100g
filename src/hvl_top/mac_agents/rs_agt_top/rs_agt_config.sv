@@ -23,12 +23,15 @@ class rs_agent_cfg_c extends uvm_object;
   // driver converts this to idle cycles on the interface: the
   // final beat's unused lanes count toward the gap, so only
   // short falls short of the configured bits need extra cycles.
-  int ipg_bits = RS_IPG_BITS_DEFAULT;
+  // Explicitly resolved to the façade-owned constant in
+  // mac_hvl_constants.svh (migrated from rs_globals_pkg, same name
+  // and value) to prove the constant is visible without the import.
+  int ipg_bits = mac_test_pkg::RS_IPG_BITS_DEFAULT;
 
   // Length/type boundary per IEEE 802.3: fields at or below this
   // value are lengths, above are types. Used by the monitor to
   // derive length_error.
-  int eth_len_bound = RS_ETH_LEN_BOUND;
+  int eth_len_bound = mac_test_pkg::RS_ETH_LEN_BOUND;
 
   // Development knobs: set to 0 to disable error injection so
   // bring-up runs only clean frames.

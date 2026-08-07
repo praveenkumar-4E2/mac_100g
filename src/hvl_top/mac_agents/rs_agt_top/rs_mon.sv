@@ -29,7 +29,8 @@
  *  - length_error = ether_type used as a length (< cfg_h.eth_len_bound)
  *    that disagrees with the counted payload,
  *  - alignment_error = wire error on the final beat.
- * Protocol field sizes come from the global rs_globals_pkg; beat
+ * Protocol field sizes come from the façade-owned
+ * mac_hvl_constants.svh (migrated from rs_globals_pkg); beat
  * geometry comes from the mac_if parameters (KEEP_WIDTH/DATA_WIDTH).
  */
 
@@ -207,38 +208,38 @@ endtask
  *    eop_pos zero.
  */
 task rs_monitor_c::check_keep();
-  if (vif.keep == '0)
+  if (vif.mon_cb.keep == '0)
     `uvm_error(get_type_name(), "keep = 0 on valid beat")
   // 64'h1 is width-matched to the keep field (KEEP_WIDTH bits;
   // an unsized literal would truncate the +1 to 32 bits and
   // break the carry through the top lanes).
-  else if ((vif.keep & (vif.keep + 64'h1)) != '0)
+  else if ((vif.mon_cb.keep & (vif.mon_cb.keep + 64'h1)) != '0)
     `uvm_error(get_type_name(),
                $sformatf("keep %h is not a contiguous-ones prefix mask",
-                         vif.keep))
+                         vif.mon_cb.keep))
 
   if (beat_eop) begin
     if (eop_pos_v == vif.KEEP_WIDTH) begin
-      if (vif.keep != '1)
+      if (vif.mon_cb.keep != '1)
         `uvm_error(get_type_name(),
                    $sformatf("full final beat keep %h != all ones",
-                             vif.keep))
-    end else if (vif.keep != ((64'h1 << eop_pos_v) - 1)) begin
+                             vif.mon_cb.keep))
+    end else if (vif.mon_cb.keep != ((64'h1 << eop_pos_v) - 1)) begin
       `uvm_error(get_type_name(),
                  $sformatf("final beat keep %h != (1<<eop_pos)-1 (%h)",
-                           vif.keep, ((64'h1 << eop_pos_v) - 1)))
+                           vif.mon_cb.keep, ((64'h1 << eop_pos_v) - 1)))
     end
   end else begin
-    if (vif.keep != '1)
+    if (vif.mon_cb.keep != '1)
       `uvm_error(get_type_name(),
                  $sformatf("interior beat keep %h != all ones",
-                           vif.keep))
-    if (vif.error)
+                           vif.mon_cb.keep))
+    if (vif.mon_cb.error)
       `uvm_error(get_type_name(), "error asserted on non-final beat")
-    if (vif.eop_pos != 0)
+    if (vif.mon_cb.eop_pos != 0)
       `uvm_error(get_type_name(),
                  $sformatf("eop_pos %0d nonzero on non-final beat",
-                           vif.eop_pos))
+                           vif.mon_cb.eop_pos))
   end
 endtask
 
@@ -288,7 +289,7 @@ task rs_monitor_c::finish_frame();
                $sformatf("byte count %0d != %0d*%0d+eop_pos=%0d",
                          frame_q.size(), vif.KEEP_WIDTH, beats - 1,
                          eop_pos_v))
-  else if (frame_q.size() < RS_MIN_FRAME_BYTES + (last_fcs ? RS_FCS_BYTES : 0))
+  else if (frame_q.size() < mac_test_pkg::RS_MIN_FRAME_BYTES + (last_fcs ? mac_test_pkg::RS_FCS_BYTES : 0))
     `uvm_error(get_type_name(),
                $sformatf("frame too short: %0d bytes, fcs_present=%0b",
                          frame_q.size(), last_fcs))
@@ -334,34 +335,34 @@ function void rs_monitor_c::frame_to_item(byte unsigned frame_q[$], int eop_pos_
                                           bit last_err, bit last_fcs,
                                           output frame_xtn_c item);
   int n       = frame_q.size();
-  int pld_len = n - RS_MIN_FRAME_BYTES - (last_fcs ? RS_FCS_BYTES : 0);
+  int pld_len = n - mac_test_pkg::RS_MIN_FRAME_BYTES - (last_fcs ? mac_test_pkg::RS_FCS_BYTES : 0);
 
   item = frame_xtn_c::type_id::create("item");
   item.preamble = '0;
-  for (int i = 0; i < RS_PREAMBLE_BYTES; i++)
-    item.preamble[RS_PREAMBLE_BYTES * 8 - 1 - 8*i -: 8] = frame_q[i];
-  item.sfd      = frame_q[RS_PREAMBLE_BYTES];
+  for (int i = 0; i < mac_test_pkg::RS_PREAMBLE_BYTES; i++)
+    item.preamble[mac_test_pkg::RS_PREAMBLE_BYTES * 8 - 1 - 8*i -: 8] = frame_q[i];
+  item.sfd      = frame_q[mac_test_pkg::RS_PREAMBLE_BYTES];
   item.dst_addr = '0;
-  for (int i = 0; i < RS_DA_BYTES; i++)
+  for (int i = 0; i < mac_test_pkg::RS_DA_BYTES; i++)
     item.dst_addr[47 - 8*i -: 8] =
-      frame_q[RS_PREAMBLE_SFD_BYTES + i];
+      frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + i];
   item.src_addr = '0;
-  for (int i = 0; i < RS_SA_BYTES; i++)
+  for (int i = 0; i < mac_test_pkg::RS_SA_BYTES; i++)
     item.src_addr[47 - 8*i -: 8] =
-      frame_q[RS_PREAMBLE_SFD_BYTES + RS_DA_BYTES + i];
+      frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_DA_BYTES + i];
   item.ether_type =
-    {frame_q[RS_PREAMBLE_SFD_BYTES + RS_HDR_BYTES - 2],
-     frame_q[RS_PREAMBLE_SFD_BYTES + RS_HDR_BYTES - 1]};
+    {frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_HDR_BYTES - 2],
+     frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_HDR_BYTES - 1]};
   item.payload = new[pld_len];
   foreach (item.payload[i])
-    item.payload[i] = frame_q[RS_MIN_FRAME_BYTES + i];
+    item.payload[i] = frame_q[mac_test_pkg::RS_MIN_FRAME_BYTES + i];
   item.insert_fcs = last_fcs;
   if (last_fcs) begin
     // FCS is carried LSB-first on the wire (fcs[7:0] first), so the
     // first FCS byte maps to the least-significant byte of the value.
     item.fcs = '0;
-    for (int i = 0; i < RS_FCS_BYTES; i++)
-      item.fcs[8*i +: 8] = frame_q[n - RS_FCS_BYTES + i];
+    for (int i = 0; i < mac_test_pkg::RS_FCS_BYTES; i++)
+      item.fcs[8*i +: 8] = frame_q[n - mac_test_pkg::RS_FCS_BYTES + i];
   end else begin
     item.fcs = '0;
   end

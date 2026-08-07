@@ -3,6 +3,7 @@
 +incdir+../../src/hdl_top/interfaces
 +incdir+../../src/hvl_top/tb
 +incdir+../../src/hvl_top/test
++incdir+../../src/hvl_top/pkg
 +incdir+../../src/hvl_top/mac_agents/rs_agt_top
 +incdir+../../src/hvl_top/mac_agents/axi_agt_top
 +incdir+../../src/hvl_top/mac_agents/mac_reset_agt
@@ -62,6 +63,7 @@
 ../../src/hdl_top/tx/tx_crc_insert.sv
 ../../src/hdl_top/tx/tx_client_capture.sv
 ../../src/hdl_top/tx/tx_axi4_stream_adapter.sv
+../../src/hdl_top/tx/tx_axi_admission.sv
 ../../src/hdl_top/tx/tx_arbiter.sv
 ../../src/hdl_top/tx/mac_tx_top.sv
 ../../src/hdl_top/tx/frame_formatter.sv
@@ -72,6 +74,5 @@
 
 # HVL
 ../../src/globals/mac_common_defs.sv
-../../src/globals/rs_globals.sv
 ../../src/hvl_top/test/mac_test_pkg.sv
 ../../src/hvl_top/tb/mac_tb_top.sv

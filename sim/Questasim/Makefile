@@ -74,7 +74,7 @@ CLEAN_TARGETS = $(WORK) transcript vsim.wlf *.log *.ucdb $(OPT_TOP) run_*
 .PHONY: help all lib \
         check compile compile_opt run run_opt gui gui_opt \
         compile_cov compile_opt_cov run_cov run_opt_cov gui_cov cover_report \
-        regression clean
+        audit regression clean
 
 ## --------------------------- Default / Help ------------------------------
 
@@ -87,6 +87,9 @@ help:
 	@echo "";
 	@echo "I just want to check my code compiles (fastest option):";
 	@echo "  make check";
+	@echo "";
+	@echo "I want to run the non-mutating HVL source audit (no compile, no artifacts):";
+	@echo "  make audit";
 	@echo "";
 	@echo "I want to compile the design normally:";
 	@echo "  make compile";
@@ -150,6 +153,14 @@ check: lib
 	@echo ">> Quick compile check (no simulation, no waveform, no coverage)";
 	$(VLOG) -sv -suppress 2892 -f $(FILELIST)
 	@echo ">> Compile check PASSED - no errors.";
+
+## Run the non-mutating HVL source audit (UTL-004..008).
+## Never compiles and never writes simulation artifacts: it only scans
+## src/hvl_top + src/globals, reports package/import/include sites, and runs
+## the UTL-005/006/007 guardrail checks (exit non-zero on a violation).
+audit:
+	@echo ">> Running HVL source audit (non-mutating)...";
+	bash ../../skills/utilities/source_audit.sh
 
 ## Full compile without optimization
 ## (all file paths + incdirs come from $(FILELIST) itself)

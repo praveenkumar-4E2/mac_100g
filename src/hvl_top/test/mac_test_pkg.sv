@@ -1,9 +1,10 @@
 package mac_test_pkg;
   `include "uvm_macros.svh"
   import uvm_pkg::*;
-  import rs_globals_pkg::*;
 
-  `include "mac_common_defs.sv"
+  `include "mac_hvl_constants.svh"
+  `include "mac_hvl_types.svh"
+  `include "mac_hvl_utils.svh"
 
   `include "rs_agt_config.sv"
   `include "axi_agt_config.sv"
