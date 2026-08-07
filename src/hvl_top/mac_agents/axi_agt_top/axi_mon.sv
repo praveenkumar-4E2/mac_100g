@@ -75,19 +75,21 @@ endfunction
 task axi_monitor_c::run_phase(uvm_phase phase);
   byte unsigned frame_q [$];
   forever begin
-    @(posedge vif.clk);
+    // mon_cb input skew #1step samples the pre-edge value — the exact
+    // view the DUT's always_ff capture uses.
+    @(posedge vif.mon_cb);
     if (vif.rst) begin
       frame_q.delete();
       continue;
     end
-    if (vif.tvalid && vif.tready) begin
-      for (int i = 0; i < $bits(vif.tkeep); i++) begin
-        if (vif.tkeep[i]) begin
-          frame_q.push_back(vif.tdata[i * 8 +: 8]);
+    if (vif.mon_cb.tvalid && vif.mon_cb.tready) begin
+      for (int i = 0; i < $bits(vif.mon_cb.tkeep); i++) begin
+        if (vif.mon_cb.tkeep[i]) begin
+          frame_q.push_back(vif.mon_cb.tdata[i * 8 +: 8]);
         end
       end
-      if (vif.tlast) begin
-        collect_item(frame_q, vif.tuser);
+      if (vif.mon_cb.tlast) begin
+        collect_item(frame_q, vif.mon_cb.tuser);
         frame_q.delete();
       end
     end
@@ -139,12 +141,12 @@ function void axi_monitor_c::collect_item(byte unsigned frame_q[$], bit [7:0] tu
   axi_item_h.payload = new[n_payload];
   foreach (axi_item_h.payload[i]) axi_item_h.payload[i] = frame_q[14 + i];
 
-  // FCS: last 4 bytes, big-endian
+  // FCS: last 4 bytes, carried LSB-first on the wire (fcs[7:0] first)
   axi_item_h.insert_fcs = fcs_present;
   if (fcs_present) begin
     axi_item_h.fcs = '0;
     for (int i = 0; i < 4; i++)
-      axi_item_h.fcs = (axi_item_h.fcs << 8) | frame_q[nbytes - 4 + i];
+      axi_item_h.fcs[8*i +: 8] = frame_q[nbytes - 4 + i];
   end else begin
     axi_item_h.fcs = '0;
   end

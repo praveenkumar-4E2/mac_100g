@@ -72,6 +72,7 @@ module mac_top #(
   input  logic                        rx_in_eop,
   input  logic [EOP_POS_W-1:0]        rx_in_eop_pos,
   input  logic                        rx_in_error,
+  input  logic                        rx_in_fcs_present,
   input  logic                        rx_tick,
   output logic                        rx_client_valid,
   input  logic                        rx_client_ready,
@@ -151,6 +152,7 @@ module mac_top #(
   //   rx_in_eop              — RX input EOP
   //   rx_in_eop_pos          — RX input EOP valid-byte count
   //   rx_in_error            — RX input error
+  //   rx_in_fcs_present      — RX input FCS present (line side)
   //   rx_tick                — RX bit-time tick
   //   rx_client_ready        — RX client ready
   // Outputs    :
@@ -483,6 +485,7 @@ module mac_top #(
     .in_eop             (rx_in_eop),
     .in_eop_pos         (rx_in_eop_pos),
     .in_error           (rx_in_error),
+    .in_fcs_present     (rx_in_fcs_present),
     .client_if          (rx_client_if),
     .local_addr         (cfg_mac_addr),
     .promiscuous_en     (cfg_control[CTRL_PROMISCUOUS_BIT]),
@@ -601,7 +604,10 @@ module mac_top #(
       assign rx_mac_eop       = control_client_eop;
       assign rx_mac_eop_pos   = control_client_eop_pos;
       assign rx_mac_error     = rx_frame_drop;
-      assign rx_mac_fcs_valid = !rx_crc_error;
+      // The client stream never carries the wire FCS (rx_frame_emit
+      // strips it), so tuser[1] (fcs_present) reflects the delivered
+      // stream truthfully; CRC status is carried by rx_mac_error.
+      assign rx_mac_fcs_valid = rx_client_if.fcs_present;
     end else begin : g_rx_mac_scalar
       assign rx_mac_ready    = rx_client_ready;
     end

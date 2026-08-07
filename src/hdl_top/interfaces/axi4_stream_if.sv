@@ -25,6 +25,19 @@ interface axi4_stream_if #(
   logic                  tlast;
   logic [7:0]            tuser;
 
+  // TB-side clocking blocks (see mac_if.sv for the skew rationale):
+  // inputs only — clocking-block outputs are implicit drivers in
+  // QuestaSim and would conflict with RTL-connected instances.
+  clocking drv_cb @(posedge clk);
+    default input #1step output #0;
+    input tready;
+  endclocking
+
+  clocking mon_cb @(posedge clk);
+    default input #1step output #0;
+    input tdata, tkeep, tvalid, tready, tlast, tuser;
+  endclocking
+
   modport master_mp (
     input  clk, rst, tready,
     output tdata, tkeep, tvalid, tlast, tuser

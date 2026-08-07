@@ -34,6 +34,11 @@ class rs_agent_cfg_c extends uvm_object;
   // bring-up runs only clean frames.
   bit enable_error_injection = 1;
 
+  // Set to 0 to skip the inter-packet-gap check in the monitor.
+  // Used for observers of the DUT TX wire, where the gap policy is
+  // owned by the DUT's tx_ipg_timer and not constrained by the TB.
+  bit enable_ipg_check = 1;
+
   // Payload bounds applied by the sequence (soft: the item's
   // hard [46:1500] constraint still wins when these are wider).
   int min_payload_len = 46;

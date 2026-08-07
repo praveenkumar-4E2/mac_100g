@@ -35,6 +35,20 @@ module mac_tb_top;
     .rst (mac_rst)
   );
 
+  // Native MAC <-> RS interface (line side) driven by the RS agent.
+  mac_if mac_rx_if (
+    .clk (mac_clk),
+    .rst (mac_rst)
+  );
+
+  // Native MAC <-> RS interface (line side) observed on the DUT TX
+  // output: driven by the TB from the tx_out_* scalars so a passive
+  // RS agent can verify the transmitted wire frames.
+  mac_if mac_tx_out_if (
+    .clk (mac_clk),
+    .rst (mac_rst)
+  );
+
   //============================================================================
   // DUT scalar nets
   //============================================================================
@@ -58,9 +72,11 @@ module mac_tb_top;
   logic [63:0]  tx_out_keep;
   logic [6:0]   tx_out_eop_pos;
   logic        rx_in_valid;
+  logic        rx_in_ready;
   logic        rx_in_sop;
   logic        rx_in_eop;
   logic        rx_in_error;
+  logic        rx_in_fcs_present;
   logic [511:0] rx_in_data;
   logic [63:0]  rx_in_keep;
   logic [6:0]   rx_in_eop_pos;
@@ -137,13 +153,14 @@ module mac_tb_top;
     .tx_frame_done  (tx_frame_done),
     .tx_tick        (tx_tick),
     .rx_in_valid    (rx_in_valid),
-    .rx_in_ready    (),
+    .rx_in_ready    (rx_in_ready),
     .rx_in_data     (rx_in_data),
     .rx_in_keep     (rx_in_keep),
     .rx_in_sop      (rx_in_sop),
     .rx_in_eop      (rx_in_eop),
     .rx_in_eop_pos  (rx_in_eop_pos),
     .rx_in_error    (rx_in_error),
+    .rx_in_fcs_present (rx_in_fcs_present),
     .rx_tick        (rx_tick),
     .rx_client_valid    (rx_client_valid),
     .rx_client_ready    (1'b1),
@@ -195,16 +212,53 @@ module mac_tb_top;
   assign tx_client_eop         = 1'b0;
   assign tx_client_eop_pos     = '0;
   assign tx_client_fcs_present = 1'b0;
-  assign rx_in_valid           = 1'b0;
-  assign rx_in_data            = '0;
-  assign rx_in_keep            = '0;
-  assign rx_in_sop             = 1'b0;
-  assign rx_in_eop             = 1'b0;
-  assign rx_in_eop_pos         = '0;
-  assign rx_in_error           = 1'b0;
 
   // RX-side AXI slave: always accept frames from the DUT.
   assign axi_rx_if.tready = 1'b1;
+
+  // Native MAC <-> RS interface: the RS agent drives the line side
+  // (mac_rx_if) and the DUT's scalar RX input ports are connected
+  // to it, so frames flow through the DUT RX path and out the AXI
+  // RX interface.
+  assign rx_in_valid   = mac_rx_if.valid;
+  assign rx_in_data    = mac_rx_if.data;
+  assign rx_in_keep    = mac_rx_if.keep;
+  assign rx_in_sop     = mac_rx_if.sop;
+  assign rx_in_eop     = mac_rx_if.eop;
+  assign rx_in_eop_pos = mac_rx_if.eop_pos;
+  assign rx_in_error   = mac_rx_if.error;
+  assign rx_in_fcs_present = mac_rx_if.fcs_present;
+  assign mac_rx_if.ready = rx_in_ready;
+
+  // DUT TX wire: expose tx_out_* on a mac_if so the passive RS agent
+  // can verify transmitted frames. The TX path always appends FCS.
+  always_comb begin
+    mac_tx_out_if.valid       = tx_out_valid;
+    mac_tx_out_if.data        = tx_out_data;
+    mac_tx_out_if.keep        = tx_out_keep;
+    mac_tx_out_if.sop         = tx_out_sop;
+    mac_tx_out_if.eop         = tx_out_eop;
+    mac_tx_out_if.eop_pos     = tx_out_eop_pos;
+    mac_tx_out_if.error       = tx_out_error;
+    mac_tx_out_if.fcs_present = 1'b1;
+    mac_tx_out_if.ready       = 1'b1;
+  end
+
+  //============================================================================
+  // RX status pulse log: one-cycle pulses from the DUT RX path.
+  //============================================================================
+  initial begin
+    forever @(posedge mac_clk) begin
+      if (!mac_rst) begin
+        if (rx_frame_valid)  $display("%0t RX_STATUS frame_valid", $time);
+        if (rx_frame_drop)   $display("%0t RX_STATUS frame_drop", $time);
+        if (rx_crc_error)    $display("%0t RX_STATUS crc_error", $time);
+        if (rx_length_error) $display("%0t RX_STATUS length_error", $time);
+        if (rx_alignment_error) $display("%0t RX_STATUS alignment_error", $time);
+        if (rx_filter_hit)   $display("%0t RX_STATUS filter_hit", $time);
+      end
+    end
+  end
 
   //============================================================================
   // Clock generation: mac_clk 195.3125 MHz (5.12 ns);
@@ -323,6 +377,8 @@ module mac_tb_top;
   initial begin
     uvm_config_db#(virtual axi4_stream_if)::set(null, "*", "axi_tx_vif", axi_tx_if);
     uvm_config_db#(virtual axi4_stream_if)::set(null, "*", "axi_rx_vif", axi_rx_if);
+    uvm_config_db#(virtual mac_if)::set(null, "*", "mac_rx_vif", mac_rx_if);
+    uvm_config_db#(virtual mac_if)::set(null, "*", "mac_tx_vif", mac_tx_out_if);
     run_test("mac_base_test_c");
   end
 

@@ -126,12 +126,13 @@ task axi_driver_c::drive_frame(axi_item_c item);
   // Payload
   foreach (item.payload[i]) frame_q[14 + i] = item.payload[i];
 
-  // Client-supplied FCS (big-endian), only when insert_fcs is set
+  // Client-supplied FCS (LSB-first: fcs[7:0] first, the byte order the
+  // DUT TX path expects from tx_client_capture's fcs_tail window).
   if (item.insert_fcs) begin
-    frame_q[frame_size - 4] = item.fcs[31:24];
-    frame_q[frame_size - 3] = item.fcs[23:16];
-    frame_q[frame_size - 2] = item.fcs[15:8];
-    frame_q[frame_size - 1] = item.fcs[7:0];
+    frame_q[frame_size - 4] = item.fcs[7:0];
+    frame_q[frame_size - 3] = item.fcs[15:8];
+    frame_q[frame_size - 2] = item.fcs[23:16];
+    frame_q[frame_size - 1] = item.fcs[31:24];
   end
 
   tuser = {6'b0, item.insert_fcs, item.crc_error};
@@ -167,8 +168,11 @@ endtask
 /**
  * @brief Drives a single AXI4-Stream beat with full handshaking.
  *
- * Holds the beat stable until tready is sampled high in the
- * same cycle as tvalid (the handshake), then returns.
+ * Writes the beat with raw nonblocking assignments (visible to the
+ * DUT at the next posedge), then holds until tready is sampled high.
+ * drv_cb.tready is sampled with the #1step input skew — the pre-edge
+ * value, the exact view the DUT's always_ff capture uses — so the
+ * driver and the DUT always agree on the handshake edge.
  *
  * @param tdata 512-bit beat payload.
  * @param tkeep 64-bit byte-enable prefix mask.
@@ -187,11 +191,11 @@ task axi_driver_c::send_beat(logic [511:0] tdata, logic [63:0] tkeep,
   // handshake. Only valid when the TB does not drive tready.
   if (cfg_h.generate_backpressure) begin
     vif.tready <= 1'b0;
-    repeat ($urandom_range(cfg_h.tready_stall_max)) @(posedge vif.clk);
+    repeat ($urandom_range(cfg_h.tready_stall_max)) @(posedge vif.drv_cb);
     vif.tready <= 1'b1;
   end
   do begin
-    @(posedge vif.clk);
-  end while (!vif.tready);
+    @(posedge vif.drv_cb);
+  end while (!vif.drv_cb.tready);
   vif.tvalid <= 1'b0;
 endtask

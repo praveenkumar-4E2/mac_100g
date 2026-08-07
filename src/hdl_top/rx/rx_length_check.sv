@@ -31,6 +31,7 @@ module rx_length_check #(
   input  logic                    in_eop,
   input  logic [EOP_POS_W-1:0]    in_eop_pos,
   input  logic                    in_error,
+  input  logic                    in_fcs_present,
   input  logic [15:0]             max_frame_size,
   input  logic [15:0]             min_frame_size,
   output logic                    frame_done,
@@ -137,18 +138,22 @@ module rx_length_check #(
           next_total    = in_sop ? count_lanes(in_keep) : total + count_lanes(in_keep);
           lt            = in_sop ? { in_data[12*8 +: 8], in_data[13*8 +: 8] }
                                  : length_type_capture;
-          payload_count = (next_total >= HEADER_OCTETS + FCS_OCTETS) ? next_total - HEADER_OCTETS - FCS_OCTETS : '0;
+          // FCS is part of the counted body only when the wire carries it
+          // (in_fcs_present); frames without an FCS field are accounted
+          // with HEADER_OCTETS as the minimum body.
+          payload_count = (next_total >= HEADER_OCTETS + (in_fcs_present ? FCS_OCTETS : 0)) ?
+                          next_total - HEADER_OCTETS - (in_fcs_present ? FCS_OCTETS : 0) : '0;
           // IEEE 802.3 Clause 3.2.7-3.2.8: min/max frame size from runtime config
           short_frame      = next_total < min_frame_size;
           invalid_type_gap = (lt > MAX_CLIENT_DATA) && (lt < TYPE_THRESHOLD);
           invalid_length   = (lt <= MAX_CLIENT_DATA) && (payload_count < lt);
           payload_octets   <= payload_count;
-          alignment_error  <= frame_alignment || in_error || (next_total < HEADER_OCTETS + FCS_OCTETS);
+          alignment_error  <= frame_alignment || in_error || (next_total < HEADER_OCTETS + (in_fcs_present ? FCS_OCTETS : 0));
           oversize_error   <= next_total > max_frame_size;
           undersize_error  <= next_total < min_frame_size;
           length_error     <= short_frame || invalid_type_gap || invalid_length || (next_total > max_frame_size);
           length_good      <= !(short_frame || invalid_type_gap || invalid_length ||
-                                frame_alignment || in_error || (next_total < HEADER_OCTETS + FCS_OCTETS) ||
+                                frame_alignment || in_error || (next_total < HEADER_OCTETS + (in_fcs_present ? FCS_OCTETS : 0)) ||
                                 (next_total > max_frame_size));
           // COVER: Short frame detected
           // COVER: Oversize frame detected

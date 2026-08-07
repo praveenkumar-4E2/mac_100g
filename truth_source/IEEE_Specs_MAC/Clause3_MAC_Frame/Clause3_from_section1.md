@@ -1,0 +1,316 @@
+3. Media Access Control (MAC) frame and packet specifications
+3.1 Overview
+This clause defines the mapping between MAC service interface primitives and Ethernet packets, including 
+the syntax and semantics of the various fields of MAC frames and the fields used to form those MAC frames 
+into packets.
+During Ethernet’s history, capabilities have b een added to allow data link layer (layer 2) protocol encapsula-
+tions within the MAC Client Data field. As a result, there are now more than one type of MAC frame.
+The frame format specified in this clause includes the following thre e types of MAC frames:
+a) A basic frame
+b) A Q-tagged frame
+c) An envelope frame
+All three frame types use the same Ethernet frame format.
+3.1.1 Packet format
+Figure 3–1 shows the fields of a packet: the Preamble, St art Frame Delimiter (SFD), the addresses of 
+ the 
+MAC frame’s destination and source, a length or type field to indicate the length or protocol type of the 
+following field that contains  the MAC client data, a 
+field that co ntains padding if required, and the Frame 
+Check Sequence (FCS) field containing a cyclic redundancy check value to detect errors in a received MAC 
+frame. An Extension field is added, if required (for 1000 Mb/s half dup lex operation only). Of these fields, 
+all are of fixed size except for the MAC Client Data, Pad and Extension fields, which may contain an integer 
+number of octets between the minimum and maximu m values that are determined by the specific 
+implementation of the MAC. See 4.4 for particular MAC parameters.       
+PREAMBLE
+SFD
+DESTINATION ADDRESS
+SOURCE ADDRESS
+MAC CLIENT DATA
+PAD
+7 OCTETS
+1 OCTET
+6 OCTETS
+6 OCTETS
+2 OCTETS
+4 OCTETS
+OCTETS
+b0
+LSB MSB
+b7
+BITS
+TRANSMITTED
+LEFT TO RIGHT
+EXTENSION
+FRAME CHECK SEQUENCE
+LENGTH/TYPE
+Figure 3–1—Packet format
+46 TO 1500 OR 1504
+OR 1982 OCTETS
+(SEE 3.2.7)
+TOP TO BOTTOM
+TRANSMITTED 
+PACKET
+FRAME
+
+> **[Figure 3-1 Description — page_images/page_124.png]**
+> Frame structure diagram showing the Ethernet packet as a vertical stack of fields:
+> PREAMBLE (7 octets) → SFD (1 octet) → DESTINATION ADDRESS (6 octets) → SOURCE ADDRESS (6 octets) → LENGTH/TYPE (2 octets) → MAC CLIENT DATA (46–1500/1504/1982 octets) → PAD (variable) → FRAME CHECK SEQUENCE (4 octets) → EXTENSION (variable, 1000 Mb/s half duplex only).
+> The "FRAME" portion spans from Destination Address through FCS. The "PACKET" includes all fields. Bits transmitted left-to-right, octets top-to-bottom.
+
+---
+<!-- Page 124 -->
+---
+
+IEEE 
+Std 802.3-2008 REVISION OF IEEE Std 802.3:
+50 Copyright © 2008 IEEE. All rights reserved.
+The minimum and maximum MAC frame size limits in 4.4 refer to that portion of the packet from the dEsti-
+nation Address field through the Frame Check Sequence field, inclusive (i.e., th e MAC frame).
+Relative to Figure 3–1, the octets of a packet are transmitted from  top to bot tom, and the bits of each octet 
+are transmitted from left to right.
+3.1.2 Service interface mappings
+Figure 3–2 shows the mapping of service interface parameters to the fields of a MAC frame within a 
+ packet. 
+The MAC client may or may not supply Pad and FCS. For this reason the mappings for Pad and FCS are 
+shown with d
+ashed lines. 
+3.2 Elements of the MAC frame and packet
+A MAC frame is encapsulated in a packet by the MAC. Th is subclause describes in detail the fields of the 
+MAC frame and the additional fields that the MAC creat es to encapsulate the MAC frame. These fields are 
+described in order of transmission.
+3.2.1 Preamble field
+The Preamble field is a 7-octet field that is used to allow the PLS circuitry to reach its steady-state synchro-
+nization with 
+the received packet’s timing (see 4. 2.5).
+3.2.2 Start Frame Delimiter (SFD) field
+The SFD field is the sequence 10101011. It immediately follows the preamble pattern. A MAC frame starts 
+immediately
+ after the SFD.
+3.2.3 Address fields
+Each MAC frame shall cont ain two address fields :  the Destination Address field and the Source Address 
+field, in that order. The Destinat ion Address field shall specify the de stination addressee(s) for which the 
+MAC frame is intended. The Source Address field shall identify the station from which the MAC frame was 
+initiated. The representation of each address field shall be as follows (see Figure 3–3):
+PREAMBLE
+SFD
+DA
+SA
+MAC CLIENT DATA
+PAD
+EXTENSION
+FCS
+LENGTH/TYPE
+Figure 3–2—Service primitive mappings
+MA_DATA.request(destination_address,source_address,mac_service_data_unit,frame_check_sequence)
+MA_DATA.indication(destination_address,source_address,mac_service_data_unit,frame_check_sequence)
+
+> **[Figure 3-2 Description — page_images/page_125.png]**
+> Mapping diagram showing how MA_DATA.request parameters map to packet fields:
+> - `destination_address` → DA (solid arrow)
+> - `source_address` → SA (solid arrow)
+> - `mac_service_data_unit` → LENGTH/TYPE and MAC CLIENT DATA (solid arrows)
+> - `frame_check_sequence` → FCS (dashed arrow, optional)
+> - PAD shown with dashed arrow (generated by MAC if needed)
+> MA_DATA.indication shown at bottom as the receive-side mapping.
+
+---
+<!-- Page 125 -->
+---
+
+IEEE 
+CSMA/CD Std 802.3-2008
+Copyright © 2008 IEEE. All rights reserved. 51
+a) Each address field shall be 48 bits in length.
+b) The first bit (LSB) shall be used in the Destination Address field as  an  address type designation bit 
+to identify the Destination Address either as an indi vidual or as a group address. If this bit is 0, it 
+shall indicate that the address field contains an individual address. If this bit is 1, it shall indicate that 
+the address field contains a group address that identifies none, one or more, or all of the stations con-
+nected to the LAN. In the Source Address field, the first bit i s reserved and set to 0.
+c) The second bit shall be used to distinguish between locally or globally administered addresses. For 
+globally 
+administered (or U, universal) addresses, the bit is set to 0. If an address is to be assigned 
+locally, this bit shall be set to 1. Note that for the broadcast address, this bit is also a 1.
+d) Each octet of each address field shall be  transmitted least significant bit first.      
+3.
+2.3.1 Address designation
+A MAC sublayer address is one of two types:
+a) Individual Address. The address associated with a particular station on the network.
+b) Group Address. A mu l tidestination address, associated with one or more stations on a given net -
+work. There are two kinds of multicast addresses:
+1) Multicas
+t-Group Address. An address associated by higher -level convention with a g roup of 
+logically related stations.
+2) Broadcast Address. A distingu ished, predefined multicast address that always denotes the set of 
+all stations on a given LAN.
+All 1’s in the Destination Address field shall be predefined  to be the Broadcast Address. This group shall be 
+predefined for each communication medi um to consist of all stations actively connected  to that medium; it 
+shall be used to broadcast to all the active stations on that medium. All stations shall be able to recognize the 
+Broadcast Address. It is not necessary that a station be capable of generating the Broadcast Address.
+The address space shall also be partit ioned into locally admini stered and globally administered addresses. 
+The natu
+re of a body and the procedures by which it administers these global (U) addresses is beyond the 
+scope of this standard.18
+3.2.4 Destination Address field
+The Destination Address field specifies  the station(s) for which t he MAC frame is intended. It may be an 
+individual or multicast (including broadcast) address. 
+18For information on how to use MAC addresses, see IEEE Std 802-2001, Overview and Architecture. To apply for an Organizationally 
+Unique Identifier for bu ilding a MAC address, contact the Registration Author ity, IEEE Standards Department, P.O. Box 1331, 445  
+Hoes Lane, Piscataway, NJ 08855-1331, USA; +1 732 562 3813; fax +1 732 562 1571. URL: http://standards.ieee.org/.
+U/L 46-BIT ADDRESS
+I/G = 0 INDIVIDUAL ADDRESS
+I/G = 1 GROUP ADDRESS
+U/L = 0 GLOBALLY ADMINISTERED ADDRESS
+U/L = 1 LOCALLY ADMINISTERED ADDRESS
+I/G
+Figure 3–3—Address field format
+
+> **[Figure 3-3 Description — page_images/page_126.png]**
+> Bit field diagram showing the 48-bit address structure:
+> - **I/G bit** (1 bit): 0 = Individual Address, 1 = Group Address
+> - **U/L bit** (1 bit): 0 = Globally Administered Address, 1 = Locally Administered Address
+> - **46-BIT ADDRESS**: remaining address bits
+> Legend: I/G=0 → INDIVIDUAL ADDRESS; I/G=1 → GROUP ADDRESS; U/L=0 → GLOBALLY ADMINISTERED; U/L=1 → LOCALLY ADMINISTERED
+
+---
+<!-- Page 126 -->
+---
+
+IEEE 
+Std 802.3-2008 REVISION OF IEEE Std 802.3:
+52 Copyright © 2008 IEEE. All rights reserved.
+3.2.5 Source Address field
+The Source Address field specifies the station sending the MAC frame. The Source A ddress field is not 
+interpreted by the MAC sublayer.
+3.2.6 Length/Type field
+This two-octet field takes one of two meanings, depending on its numeric value. For numerical evaluation, 
+the first octet is 
+the most significant octet of this field.
+a) If the value of this field is less than or equal to 1500 decimal (05DC hexadecimal), then the Length/
+Type field indicates the number of MAC
+ client data octets contained in the subsequent MAC Client 
+Data field of the basic frame (Length interpretation). 
+b) If the value of this field is greater than or equal to 1536 decimal (0600 hexadecimal), then the 
+Length/Type field ind
+icates the nature of the MAC client protocol (Type interpretation).19  
+The Length and Type interpretations of this field are mutually exclusive.
+When used as a T
+ype field, it is the responsib ility of the MAC client to ensure that the MAC client 
+operates properly when the MAC sublayer pads the supplied MAC Client data, as discussed in 3.2.7. 
+Regardless of the interpretation of the Length/Type field, if the length of the MAC Client Data field is less 
+than the mi nim
+um required for proper operation of the protocol, a Pad field (a sequence of octets) will be 
+added after the MAC Client Data field but prior to the FCS field, specified below. The procedure that deter-
+mines the size of the Pad field is specified in 4.2.8. The Length/Type field is transmitted and received with 
+the high order octe
+t first.
+NOTE—Clause 2 of IEEE Std 802a-2003 (an amendment to IEEE Std 802) defines a set of Type values and associated 
+mechanisms for use in prototype and vendor-specific protocol development.
+3.2.7 MAC Client Data field
+The MAC Client Data field contains a sequence of octets. Full data tran sparency is provided in the sense that 
+any arbitrary sequence of octet values may appear in  the MAC Client Data field up to a maximum field 
+length determined by the particular implementation. 
+Ethernet implementations shall support at least one of  three maxi
+ mum MAC Client Data field sizes defined 
+as follows:
+a) 1500 decimal—basic frames (see 1.4.73)
+b) 1504 decimal—Q-ta gged frames (see 1.4.291)
+c) 1982 decimal—envelope frames (see 1.4.151)
+If layer management is implemented, frames with a MAC Client Data field lar ger than the supported maxi -
+mum MAC Client Data field size are counted. It is recommended th at new implementations support the 
+transmission and reception of envelope frames, item c) above.
+NOTE 1—The envelope frame is intended to allow inclusion of additional prefixes and suffixes required by higher layer 
+encapsulation protocols (see 1.4.x) such as those de fined by the IEEE 802.1 working group (such as Provider Bridges 
+and MAC Security), ITU-T or IETF (s uch as MPLS). The original MAC Clie nt Data field maximum remains 1500 
+octets while the encapsulation protocols may add up to an additional 482 octets. Use of these extra octets for other pur-
+poses is not recommended, a nd may result in MAC frames being dropped or corrupted as they may violate maximum 
+MAC frame size restrictions if encapsulation protocols are required to operate on them.
+19Type field assignments are administered by the Registration Authority, IEEE Standards Department, P.O. Box 1331, 445 Hoes Lane, 
+Piscataway, NJ 08855-1331, USA; +1 732 562 3813; fax +1 732 562 1571. URL: http://standards.ieee.org/.
+
+---
+<!-- Page 127 -->
+---
+
+IEEE 
+CSMA/CD Std 802.3-2008
+Copyright © 2008 IEEE. All rights reserved. 53
+NOTE 2—All IEEE 802.3 MAC frames share a common format. The processing of the three types of MAC frames is 
+not differentiated within the IEEE 802.3 MAC, except for management. However, they may be distinguished within the 
+MAC client.
+NOTE 3—All Q-tagged frames are enve lope frames, but not all env elope frames are Q-tagged frames.
+See 4.4 for a discussion of MAC parameters; see 4.2.3.3 for a discussion of th e minimum frame size and 
+minFrame
+Size.
+3.2.8 Pad field
+A minimum MAC frame size is required for correct CSMA/ CD protocol  operation (see 4.2.3.3 and 4.4). If 
+necessary, a Pad field (in units of octets) is appended after the MAC Client Data field prior to calculating 
+and appending the FCS field. The size of  the Pad, if any, is determined by the size of the MAC Client Data 
+field supplied by the MAC client and the minimum MAC frame size and address size MAC parameters (see 
+4.4).
+The length of the Pad field required for MAC Client Data that is clien
+ tDatasize/8 octets long is  
+max [0, minFrameSize – (clientDatasize + 2 × addressSize + 48)] bits.
+3.2.9 Frame Check Sequence (FCS) field
+A cyclic redundancy check (CRC) is used by the transm it and receive algorithms to generate a CR
+ C value 
+for the FCS field. The FCS field contains a 4-octet (32-bit) CRC value. This value is computed as a function 
+of the contents of the protected fields of the MAC frame: the Destination Address, Source Address, Length/
+Type field, MAC Client Data, and Pad (that is, all fields except FCS). The encoding is defined by the follow-
+ing generating polynomial.
+G(x) = x32 + x26 + x23 + x22 + x16 + x12 + x11 + x10 + x8 + x7 + x5 + x4 + x2 + x + 1
+Mathematically, the CRC value corresponding to a given MAC frame is  defined by the following procedure:
+a) The first 32 bits of th e frame are complemented.
+b) T h
+e n bits of the protected fields are then consid ered to be the c oefficients of a polynomial M(x) of 
+degree n – 1. (The first bit of the Destination Address field corresponds to the x(n–1) term and the last 
+bit of the MAC Client Data field (or Pad field if present) corresponds to the x0 term.)
+c) M(x) is multi plied by x32 and divided by G(x), producing a remainder R(x) of degree ≤ 31.
+d) The coefficients of R(x) are considered to be a 32-bit sequence.
+e)
+The bit sequence is complemented and the result is the CRC.
+The 32 bits of the CRC value are placed in the FCS field so  that the x31 term is the left-most bit of the first 
+octet, and the x0 term is the right most bit of the last octet. (The bits of th e CRC are thus transmitted in the 
+order x31, x30,…, x 1, x0.) See Hammond, et al. [B37].
+3.2.10 Extension field
+The Extension field follows the FCS field, and is m
+ ade up of a sequence of extension bits, which are readily 
+distinguished from data bits. The length of the field is in the range of zero to (slotTime–minFrameSize) bits, 
+inclusive. The contents of the Extension field are not included in the FCS computation.
+The Extension field may have a length of greater than zero under the conditions that are described in 
+ 4.2.3.4. 
+The length of the Extension field will be zero under all other conditions. Implementations defined in 4.4.2
+may ignore this field altogether if the number of bit tim es in the slot Time parameter is equal to the number 
+of bits in the minFrameSize parameter.
+
+---
+<!-- Page 128 -->
+---
+
+IEEE 
+Std 802.3-2008 REVISION OF IEEE Std 802.3:
+54 Copyright © 2008 IEEE. All rights reserved.
+3.3 Order of bit transmission
+Each octet of the MAC frame, with the exception of the FCS, is transmitted least significant bit first.
+3.4 Invalid MAC frame
+An invalid MAC frame shall be defined as one that meets at least one of the following conditions:
+a) The frame length is inconsistent with a length value specified in the length/type field. If the length/
+type field contains a typ
+e value as defined by 3.2.6, then the frame length is assumed to be consistent 
+with this field and should not be considered an invalid frame on this basis.
+b) It is not an integral number of octets in length.
+c) The bits of the incoming frame (exclusive of the FC S field itself) do not generate a CRC value iden-
+tical to the one received.
+The contents of invalid MAC frames shall not be  passed to the LLC or MAC  Control sublayers.
+20
+ The 
+occurrence of invalid MAC frames may be communicated to network management.
+20Invalid MAC frames may be ignored, discarded, or used in a pr ivate manner by MAC clients other than LLC or MAC control. The 
+use of such frames is beyond the scope of this standard.
+
+---
+<!-- Page 129 -->
+---
+
+IEEE 
+CSMA/CD Std 802.3-2008
+Copyright © 2008 IEEE. All rights reserved. 55

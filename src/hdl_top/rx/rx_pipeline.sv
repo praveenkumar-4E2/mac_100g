@@ -29,6 +29,7 @@ module rx_pipeline #(
   input  logic                    in_eop,
   input  logic [EOP_POS_W-1:0]    in_eop_pos,
   input  logic                    in_error,
+  input  logic                    in_fcs_present,
   input  logic                    filter_accept,
   input  logic [15:0]             max_frame_size,
   input  logic [15:0]             min_frame_size,
@@ -112,6 +113,7 @@ module rx_pipeline #(
   logic                            pre_stage_eop;
   logic [EOP_POS_W-1:0]            pre_stage_eop_pos;
   logic                            pre_stage_error;
+  logic                            pre_stage_fcs_present;
   logic                            header_ready;
   logic                            header_done;
   logic                            header_done_ready;
@@ -151,6 +153,7 @@ module rx_pipeline #(
     .in_eop       (in_eop),
     .in_eop_pos   (in_eop_pos),
     .in_error     (in_error),
+    .in_fcs_present (in_fcs_present),
     .out_valid    (pre_stage_valid),
     .out_ready    (pre_stage_ready),
     .out_data     (pre_stage_data),
@@ -158,7 +161,8 @@ module rx_pipeline #(
     .out_sop      (pre_stage_sop),
     .out_eop      (pre_stage_eop),
     .out_eop_pos  (pre_stage_eop_pos),
-    .out_error    (pre_stage_error)
+    .out_error    (pre_stage_error),
+    .out_fcs_present (pre_stage_fcs_present)
   );
 
   // The four consumers observe the same normalized frame atomically.
@@ -205,10 +209,11 @@ module rx_pipeline #(
     .in_data            (pre_stage_data),
     .in_keep            (pre_stage_keep),
     .in_sop             (pre_stage_sop),
-    .in_eop             (pre_stage_eop),
-    .in_eop_pos         (pre_stage_eop_pos),
-    .in_error           (pre_stage_error),
-    .frame_done         (crc_done),
+    .in_eop              (pre_stage_eop),
+    .in_eop_pos          (pre_stage_eop_pos),
+    .in_error            (pre_stage_error),
+    .in_fcs_present      (pre_stage_fcs_present),
+    .frame_done          (crc_done),
     .frame_done_ready   (crc_done_ready),
     .crc_good           (crc_good),      // COVER: CRC check passed
     .crc_error          (crc_error_int), // COVER: CRC error detected
@@ -230,6 +235,7 @@ module rx_pipeline #(
     .in_eop              (pre_stage_eop),
     .in_eop_pos          (pre_stage_eop_pos),
     .in_error            (pre_stage_error),
+    .in_fcs_present      (pre_stage_fcs_present),
     .max_frame_size      (max_frame_size),
     .min_frame_size      (min_frame_size),
     .frame_done          (length_done),

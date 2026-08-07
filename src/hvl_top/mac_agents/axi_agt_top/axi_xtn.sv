@@ -168,6 +168,12 @@ endfunction
 /**
  * @brief Computes the IEEE 802.3 CRC-32 FCS over DA+SA+ET+payload.
  *
+ * LSB-first reflected CRC-32 (polynomial 0xEDB88320, init 0xFFFFFFFF,
+ * final complement), matching the DUT crc32_pkg. The returned value is
+ * the 32-bit FCS; the stream carries its bytes LSB-first (fcs[7:0]
+ * first), which is the byte order the DUT TX path expects
+ * (tx_client_capture fcs_tail window / tx_frame_builder emission).
+ *
  * @return 32-bit FCS value.
  */
 function automatic bit [31:0] axi_item_c::compute_fcs();
@@ -180,10 +186,11 @@ function automatic bit [31:0] axi_item_c::compute_fcs();
   bytes_q[13] = ether_type[7:0];
   foreach (payload[i]) bytes_q[14 + i] = payload[i];
   foreach (bytes_q[i]) begin
-    crc ^= bytes_q[i] << 24;
     for (int b = 0; b < 8; b++) begin
-      if (crc[31]) crc = (crc << 1) ^ 32'h04C11DB7;
-      else         crc = crc << 1;
+      if (crc[0] ^ bytes_q[i][b])
+        crc = (crc >> 1) ^ 32'hEDB8_8320;
+      else
+        crc = crc >> 1;
     end
   end
   return ~crc;

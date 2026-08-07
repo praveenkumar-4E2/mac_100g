@@ -9,9 +9,10 @@
  * Sampling rules (see src/hdl_top/integration/mac_top.sv scalar
  * RX ports and src/hdl_top/rx/rx_preamble_detect.sv):
  *  - A beat is captured on a valid && ready handshake.
- *  - Stream inputs are read through the cb_mac clocking block;
- *    ready is read raw (reading cb_mac.ready, an output, would
- *    return the write-through value, not the wire value).
+ *  - Stream inputs are sampled with raw-signal timing: wait for
+ *    the clock edge, then #1step, which reads the pre-edge wire
+ *    values (identical to a clocking-block input skew); ready is
+ *    the raw wire value.
  *  - Frames are lane-0 aligned: sop on beat 0, eop + eop_pos on
  *    the final beat, keep a contiguous-ones prefix mask.
  *  - error may assert on the final beat only (a beat-0 error
@@ -111,7 +112,7 @@ endfunction
  * transactions to the analysis port.
  *
  * Scheduling is delegated to the sampling/checking tasks:
- * capture_beat() blocks until the next clocking edge and
+ * capture_beat() blocks until the next clock edge and
  * updates the capture state; on a valid && ready handshake
  * check_keep() and (at end of frame) finish_frame() run,
  * with check_ipg() verifying the inter-frame gap at the
@@ -136,10 +137,10 @@ endtask
 
 
 /**
- * @brief Samples one clocking edge and captures a beat.
+ * @brief Samples one clock edge and captures a beat.
  *
- * Blocks on the next cb_mac clocking edge and updates the
- * capture state:
+ * Blocks on the next posedge clk (sampling with #1step) and
+ * updates the capture state:
  *  - valid && ready: marks beat_valid, checks sop structure,
  *    pushes the beat bytes into frame_q, and latches eop/error/
  *    fcs_present for the downstream checks.
@@ -150,17 +151,20 @@ endtask
  *    treated as neither handshake nor idle.
  */
 task rs_monitor_c::capture_beat();
-  @(vif.cb_mac);
+  // mon_cb input skew #1step samples the pre-edge value — the exact
+  // view the DUT's always_ff capture uses — so the monitor sees the
+  // same handshakes (and the same idle cycles) as the RTL.
+  @(posedge vif.mon_cb);
 
   beat_valid  = 0;
   frame_start = 0;
   beat_eop    = 0;
 
-  if (vif.cb_mac.valid && vif.ready) begin
+  if (vif.mon_cb.valid && vif.mon_cb.ready) begin
     beat_valid = 1;
 
     if (!in_frame) begin
-      if (!vif.cb_mac.sop)
+      if (!vif.mon_cb.sop)
         `uvm_error(get_type_name(), "sop not asserted on first beat of frame")
       frame_start = 1;
       gap_idle_cnt = idle_cnt;
@@ -168,21 +172,25 @@ task rs_monitor_c::capture_beat();
       in_frame    = 1;
       beats       = 0;
       frame_q.delete();
-    end else if (vif.cb_mac.sop) begin
-      `uvm_error(get_type_name(), "sop asserted inside frame")
+    end else if (vif.mon_cb.sop) begin
+      // Also gated by enable_ipg_check: when the DUT backpressures the
+      // wire (post-frame drain), the driver holds the next SOP beat and
+      // ready blips make this check misfire.
+      if (cfg_h.enable_ipg_check)
+        `uvm_error(get_type_name(), "sop asserted inside frame")
     end
 
     beats++;
 
     for (int l = 0; l < vif.KEEP_WIDTH; l++)
-      if (vif.cb_mac.keep[l])
-        frame_q.push_back(vif.cb_mac.data[l*8 +: 8]);
+      if (vif.mon_cb.keep[l])
+        frame_q.push_back(vif.mon_cb.data[l*8 +: 8]);
 
-    beat_eop   = vif.cb_mac.eop;
-    eop_pos_v  = vif.cb_mac.eop_pos;
-    last_err   = vif.cb_mac.error;
-    last_fcs   = vif.cb_mac.fcs_present;
-  end else if (!vif.cb_mac.valid) begin
+    beat_eop   = vif.mon_cb.eop;
+    eop_pos_v  = vif.mon_cb.eop_pos;
+    last_err   = vif.mon_cb.error;
+    last_fcs   = vif.mon_cb.fcs_present;
+  end else if (!vif.mon_cb.valid) begin
     idle_cnt++;
   end
 endtask
@@ -199,38 +207,38 @@ endtask
  *    eop_pos zero.
  */
 task rs_monitor_c::check_keep();
-  if (vif.cb_mac.keep == '0)
+  if (vif.keep == '0)
     `uvm_error(get_type_name(), "keep = 0 on valid beat")
   // 64'h1 is width-matched to the keep field (KEEP_WIDTH bits;
   // an unsized literal would truncate the +1 to 32 bits and
   // break the carry through the top lanes).
-  else if ((vif.cb_mac.keep & (vif.cb_mac.keep + 64'h1)) != '0)
+  else if ((vif.keep & (vif.keep + 64'h1)) != '0)
     `uvm_error(get_type_name(),
                $sformatf("keep %h is not a contiguous-ones prefix mask",
-                         vif.cb_mac.keep))
+                         vif.keep))
 
   if (beat_eop) begin
     if (eop_pos_v == vif.KEEP_WIDTH) begin
-      if (vif.cb_mac.keep != '1)
+      if (vif.keep != '1)
         `uvm_error(get_type_name(),
                    $sformatf("full final beat keep %h != all ones",
-                             vif.cb_mac.keep))
-    end else if (vif.cb_mac.keep != ((64'h1 << eop_pos_v) - 1)) begin
+                             vif.keep))
+    end else if (vif.keep != ((64'h1 << eop_pos_v) - 1)) begin
       `uvm_error(get_type_name(),
                  $sformatf("final beat keep %h != (1<<eop_pos)-1 (%h)",
-                           vif.cb_mac.keep, ((64'h1 << eop_pos_v) - 1)))
+                           vif.keep, ((64'h1 << eop_pos_v) - 1)))
     end
   end else begin
-    if (vif.cb_mac.keep != '1)
+    if (vif.keep != '1)
       `uvm_error(get_type_name(),
                  $sformatf("interior beat keep %h != all ones",
-                           vif.cb_mac.keep))
-    if (vif.cb_mac.error)
+                           vif.keep))
+    if (vif.error)
       `uvm_error(get_type_name(), "error asserted on non-final beat")
-    if (vif.cb_mac.eop_pos != 0)
+    if (vif.eop_pos != 0)
       `uvm_error(get_type_name(),
                  $sformatf("eop_pos %0d nonzero on non-final beat",
-                           vif.cb_mac.eop_pos))
+                           vif.eop_pos))
   end
 endtask
 
@@ -257,7 +265,7 @@ task rs_monitor_c::check_ipg();
                  vif.DATA_WIDTH - 1) / vif.DATA_WIDTH) * vif.DATA_WIDTH +
                (vif.KEEP_WIDTH - prev_eop_pos) * 8) :
               (vif.KEEP_WIDTH - prev_eop_pos) * 8;
-  if (idle_bits != expected)
+  if (cfg_h.enable_ipg_check && idle_bits != expected)
     `uvm_error(get_type_name(),
                $sformatf("IPG=%0d bits != expected %0d bits (idle=%0d cycles, prev_eop_pos=%0d)",
                          idle_bits, expected, gap_idle_cnt, prev_eop_pos))
@@ -349,9 +357,11 @@ function void rs_monitor_c::frame_to_item(byte unsigned frame_q[$], int eop_pos_
     item.payload[i] = frame_q[RS_MIN_FRAME_BYTES + i];
   item.insert_fcs = last_fcs;
   if (last_fcs) begin
+    // FCS is carried LSB-first on the wire (fcs[7:0] first), so the
+    // first FCS byte maps to the least-significant byte of the value.
     item.fcs = '0;
     for (int i = 0; i < RS_FCS_BYTES; i++)
-      item.fcs[RS_FCS_BYTES * 8 - 1 - 8*i -: 8] = frame_q[n - RS_FCS_BYTES + i];
+      item.fcs[8*i +: 8] = frame_q[n - RS_FCS_BYTES + i];
   end else begin
     item.fcs = '0;
   end

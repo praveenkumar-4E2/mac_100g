@@ -194,6 +194,13 @@ endfunction
  *
  * The preamble/SFD are not included, per IEEE 802.3.
  *
+ * The algorithm is the LSB-first reflected CRC-32 (polynomial
+ * 0xEDB88320, init 0xFFFFFFFF, final complement) used by the DUT
+ * crc32_pkg (src/hdl_top/primitives/crc32_pkg.sv). The returned
+ * value is the 32-bit FCS; the wire transmits its bytes LSB-first
+ * (fcs[7:0] first), which makes the DUT RX residue check
+ * (CRC32_RESIDUE = 0xDEBB20E3 over DA..FCS) pass.
+ *
  * @return 32-bit FCS value.
  */
 function automatic bit [31:0] frame_xtn_c::compute_fcs();
@@ -206,10 +213,11 @@ function automatic bit [31:0] frame_xtn_c::compute_fcs();
   bytes_q[13] = ether_type[7:0];
   foreach (payload[i]) bytes_q[14 + i] = payload[i];
   foreach (bytes_q[i]) begin
-    crc ^= bytes_q[i] << 24;
     for (int b = 0; b < 8; b++) begin
-      if (crc[31]) crc = (crc << 1) ^ 32'h04C11DB7;
-      else         crc = crc << 1;
+      if (crc[0] ^ bytes_q[i][b])
+        crc = (crc >> 1) ^ 32'hEDB8_8320;
+      else
+        crc = crc >> 1;
     end
   end
   return ~crc;

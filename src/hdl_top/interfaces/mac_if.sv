@@ -32,33 +32,34 @@ interface mac_if #(
   logic                  error;
   logic                  fcs_present;
 
-  // Clocking blocks for race-free TB access. cb is the client
-  // (source) view: drives the stream, samples ready. cb_mac is
-  // the MAC (sink) view: samples the stream, drives ready.
-  // Default skews: outputs driven in the NBA region of the clock
-  // edge, inputs sampled just before the edge (1 step).
-  clocking cb @(posedge clk);
-    input  ready;
-    output valid, data, keep, sop, eop, eop_pos, error, fcs_present;
+  // TB-side clocking blocks, inputs only: default input skew #1step
+  // samples the pre-edge value — the exact view the DUT's always_ff
+  // capture has — so driver handshakes and RTL captures can never
+  // disagree (a post-edge ready read can advance the driver a cycle
+  // before the DUT sees the beat). Clocking-block outputs are NOT
+  // declared: QuestaSim treats them as implicit drivers on the
+  // underlying signals, which conflicts with RTL-connected instances
+  // of this interface (mac_if.client_mp ports) and with continuous
+  // assignments in the TB. Drivers therefore write the raw signals
+  // with nonblocking assignments and sample ready via drv_cb.
+  clocking drv_cb @(posedge clk);
+    default input #1step output #0;
+    input ready;
   endclocking
 
-  clocking cb_mac @(posedge clk);
-    input  valid, data, keep, sop, eop, eop_pos, error, fcs_present;
-    output ready;
+  clocking mon_cb @(posedge clk);
+    default input #1step output #0;
+    input valid, ready, data, keep, sop, eop, eop_pos, error, fcs_present;
   endclocking
 
-  // RTL access stays raw-signal (synthesis-safe); the clocking
-  // blocks are an additive, TB-only view.
   modport client_mp (
     input  clk, rst, ready,
-    output valid, data, keep, sop, eop, eop_pos, error, fcs_present,
-    clocking cb
+    output valid, data, keep, sop, eop, eop_pos, error, fcs_present
   );
 
   modport mac_mp (
     input  clk, rst, valid, data, keep, sop, eop, eop_pos, error, fcs_present,
-    output ready,
-    clocking cb_mac
+    output ready
   );
 
 endinterface

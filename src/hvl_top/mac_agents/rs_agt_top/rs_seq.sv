@@ -57,9 +57,14 @@ task rs_sequence_c::body();
 
   repeat (num_frames) begin
     frame_h = frame_xtn_c::type_id::create("frame_h");
+    // Broadcast DA: with promiscuous disabled by default in the DUT
+    // register file (and no APB agent to program it), random unicast
+    // DAs are dropped by the address filter.
     if (cfg_h.enable_error_injection) begin
       if (!frame_h.randomize() with {
             soft payload.size() inside {[cfg_h.min_payload_len : cfg_h.max_payload_len]};
+            soft ether_type > 16'h0600;
+            soft dst_addr == 48'hFF_FF_FF_FF_FF_FF;
           }) begin
         `uvm_fatal(get_type_name(), "Randomization of frame_h failed")
       end
@@ -69,6 +74,8 @@ task rs_sequence_c::body();
             length_error    == 0;
             alignment_error == 0;
             soft payload.size() inside {[cfg_h.min_payload_len : cfg_h.max_payload_len]};
+            soft ether_type > 16'h0600;
+            soft dst_addr == 48'hFF_FF_FF_FF_FF_FF;
           }) begin
         `uvm_fatal(get_type_name(), "Randomization of frame_h failed")
       end

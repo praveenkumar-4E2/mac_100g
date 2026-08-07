@@ -30,6 +30,7 @@ module rx_crc_check #(
   input  logic                    in_eop,
   input  logic [EOP_POS_W-1:0]    in_eop_pos,
   input  logic                    in_error,
+  input  logic                    in_fcs_present,
   output logic                    frame_done,
   input  logic                    frame_done_ready,
   output logic                    crc_good,
@@ -153,8 +154,15 @@ module rx_crc_check #(
           // ASSERT: FCS covers DA through data (not preamble/SFD)
           // COVER: CRC validation passed
           // COVER: CRC validation failed
-          crc_good      <= !in_error && (next_total >= FCS_OCTETS) && (next_crc == CRC32_RESIDUE);
-          crc_error     <= in_error || (next_total < FCS_OCTETS) || (next_crc != CRC32_RESIDUE);
+          // Frames without a wire FCS (in_fcs_present = 0) bypass the
+          // residue validation; the wire error flag still propagates.
+          if (in_fcs_present) begin
+            crc_good      <= !in_error && (next_total >= FCS_OCTETS) && (next_crc == CRC32_RESIDUE);
+            crc_error     <= in_error || (next_total < FCS_OCTETS) || (next_crc != CRC32_RESIDUE);
+          end else begin
+            crc_good      <= !in_error;
+            crc_error     <= in_error;
+          end
           received_fcs  <= next_last4;
           frame_done    <= 1'b1;
         end

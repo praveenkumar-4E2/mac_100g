@@ -22,10 +22,12 @@
  *    stay unchanged. cfg_h.ipg_bits (96 per IEEE 802.3) of idle
  *    separate consecutive frames; the final beat's unused lanes
  *    count toward that gap.
- * All signal accesses go through the mac_if clocking block (cb)
- * so drive/sample points are race-free and identical to the MAC
- * side view (cb_mac). Protocol field sizes come from the global
- * rs_globals_pkg; beat geometry comes from the mac_if parameters.
+ * All signal accesses use raw-signal timing: drives are NBA
+ * assignments issued after @(posedge clk) (landing in the same
+ * edge's NBA region), and ready is sampled with #1step so the
+ * drive/sample points match the MAC's own view of the bus.
+ * Protocol field sizes come from the global rs_globals_pkg; beat
+ * geometry comes from the mac_if parameters.
  */
 
 class rs_driver_c extends uvm_driver #(frame_xtn_c);
@@ -122,7 +124,7 @@ task rs_driver_c::run_phase(uvm_phase phase);
   // Align the first drive to a clock edge: driving between edges
   // would let the first handshake sample complete before the beat
   // appears on the bus.
-  @(vif.cb);
+  @(posedge vif.clk);
   forever begin
     seq_item_port.get_next_item(req);
     drive_frame(req);
@@ -137,14 +139,14 @@ endtask
  * deasserted so the DUT sees an idle bus.
  */
 task rs_driver_c::reset_signals();
-  vif.cb.valid       <= 1'b0;
-  vif.cb.data        <= '0;
-  vif.cb.keep        <= '0;
-  vif.cb.sop         <= 1'b0;
-  vif.cb.eop         <= 1'b0;
-  vif.cb.eop_pos     <= '0;
-  vif.cb.error       <= 1'b0;
-  vif.cb.fcs_present <= 1'b0;
+  vif.valid       <= 1'b0;
+  vif.data        <= '0;
+  vif.keep        <= '0;
+  vif.sop         <= 1'b0;
+  vif.eop         <= 1'b0;
+  vif.eop_pos     <= '0;
+  vif.error       <= 1'b0;
+  vif.fcs_present <= 1'b0;
 endtask
 
 /**
@@ -204,12 +206,14 @@ task rs_driver_c::drive_frame(frame_xtn_c item);
   // Payload
   foreach (item.payload[i]) frame_q[RS_MIN_FRAME_BYTES + i] = item.payload[i];
 
-  // FCS (big-endian), only when insert_fcs is set
+  // FCS (LSB-first on the wire: fcs[7:0] first), only when insert_fcs
+  // is set. This matches the DUT TX emission order and makes the DUT
+  // RX residue check (rx_crc_check, CRC32_RESIDUE over DA..FCS) pass.
   if (item.insert_fcs) begin
-    frame_q[frame_size - RS_FCS_BYTES + 0] = item.fcs[31:24];
-    frame_q[frame_size - RS_FCS_BYTES + 1] = item.fcs[23:16];
-    frame_q[frame_size - RS_FCS_BYTES + 2] = item.fcs[15:8];
-    frame_q[frame_size - RS_FCS_BYTES + 3] = item.fcs[7:0];
+    frame_q[frame_size - RS_FCS_BYTES + 0] = item.fcs[7:0];
+    frame_q[frame_size - RS_FCS_BYTES + 1] = item.fcs[15:8];
+    frame_q[frame_size - RS_FCS_BYTES + 2] = item.fcs[23:16];
+    frame_q[frame_size - RS_FCS_BYTES + 3] = item.fcs[31:24];
   end
 
   fcs_present = item.insert_fcs;
@@ -241,7 +245,7 @@ task rs_driver_c::drive_frame(frame_xtn_c item);
     int ipg_cycles   = (cfg_h.ipg_bits > in_beat_idle) ?
                        ((cfg_h.ipg_bits - in_beat_idle + vif.DATA_WIDTH - 1) /
                         vif.DATA_WIDTH) : 0;
-    repeat (ipg_cycles) @(vif.cb);
+    repeat (ipg_cycles) @(posedge vif.clk);
   end
 
   cfg_h.drv_data_sent_cnt++;
@@ -261,8 +265,12 @@ endtask
 /**
  * @brief Drives a single native RS beat with full handshaking.
  *
- * Holds the beat stable until ready is sampled high in the same
- * cycle as valid (the handshake), then returns.
+ * Writes the beat with raw nonblocking assignments (visible to the
+ * DUT at the next posedge), then holds until ready is sampled high.
+ * drv_cb.ready is sampled with the #1step input skew — the pre-edge
+ * value, the exact view the DUT's always_ff capture uses — so the
+ * driver and the DUT always agree on the handshake edge (a post-edge
+ * read could advance the driver before the DUT sees the beat).
  *
  * @param data 512-bit beat payload.
  * @param keep 64-bit byte-enable prefix mask.
@@ -274,18 +282,18 @@ endtask
  */
 task rs_driver_c::send_beat(logic [511:0] data, logic [63:0] keep, bit sop, bit eop,
                             logic [6:0] eop_pos, bit err, bit fcs_present);
-  vif.cb.valid       <= 1'b1;
-  vif.cb.data        <= data;
-  vif.cb.keep        <= keep;
-  vif.cb.sop         <= sop;
-  vif.cb.eop         <= eop;
-  vif.cb.eop_pos     <= eop_pos;
-  vif.cb.error       <= err;
-  vif.cb.fcs_present <= fcs_present;
+  vif.valid       <= 1'b1;
+  vif.data        <= data;
+  vif.keep        <= keep;
+  vif.sop         <= sop;
+  vif.eop         <= eop;
+  vif.eop_pos     <= eop_pos;
+  vif.error       <= err;
+  vif.fcs_present <= fcs_present;
   do begin
-    @(vif.cb);
-  end while (!vif.cb.ready);
-  vif.cb.valid <= 1'b0;
+    @(posedge vif.drv_cb);
+  end while (!vif.drv_cb.ready);
+  vif.valid <= 1'b0;
 endtask
 
 /**

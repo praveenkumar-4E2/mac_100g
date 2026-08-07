@@ -29,6 +29,7 @@ module rx_preamble_detect #(
   input  logic                    in_eop,
   input  logic [EOP_POS_W-1:0]    in_eop_pos,
   input  logic                    in_error,
+  input  logic                    in_fcs_present,
   output logic                    out_valid,
   input  logic                    out_ready,
   output logic [DATA_WIDTH-1:0]   out_data,
@@ -36,7 +37,8 @@ module rx_preamble_detect #(
   output logic                    out_sop,
   output logic                    out_eop,
   output logic [EOP_POS_W-1:0]    out_eop_pos,
-  output logic                    out_error
+  output logic                    out_error,
+  output logic                    out_fcs_present
 );
 
   //============================================================================
@@ -101,6 +103,7 @@ module rx_preamble_detect #(
   logic        body_first;
   logic        error_q;
   logic        flush_remain;
+  logic        fcs_present_q;
 
   logic [6:0]  beat_count;
   logic        sfd_found;
@@ -179,6 +182,7 @@ module rx_preamble_detect #(
     out_eop   = emit_eop;
     out_eop_pos = emit_pos;
     out_error = emit_error;
+    out_fcs_present = fcs_present_q;
     for (integer j = 0; j < 64; j++) begin
       if (j < 64) begin
         out_data[j*8 +: 8] = emit_buf[j];
@@ -210,6 +214,7 @@ module rx_preamble_detect #(
       body_first  <= 1'b0;
       error_q     <= 1'b0;
       flush_remain <= 1'b0;
+      fcs_present_q <= 1'b0;
     end else begin
       // Emit handshake consumes a staged beat.
       if (emit_valid && out_ready) begin
@@ -227,6 +232,10 @@ module rx_preamble_detect #(
               // Body starts at the lane after the SFD.
               s = sfd_lane + 1;
               body_cnt = beat_count - s;
+              // fcs_present is a frame attribute sampled at SOP: the wire
+              // level may be repurposed by the next frame before this
+              // frame's EOP drains through the pipeline.
+              fcs_present_q <= in_fcs_present;
               if (body_cnt > 0) begin
                 // Copy the body chunk from this beat into out_buf.
                 for (i = 0; i < body_cnt; i++) begin
@@ -254,6 +263,7 @@ module rx_preamble_detect #(
                 // Runt (no body bytes this beat): drop frame, keep searching.
                 body_first <= 1'b0;
                 error_q    <= 1'b0;
+                fcs_present_q <= 1'b0;
                 state      <= SEARCH;
               end
             end else begin
@@ -293,15 +303,17 @@ module rx_preamble_detect #(
                 body_first  <= 1'b0;
                 state       <= FLUSH;
               end else begin
-                // total == 64 exactly: emit the full beat as the final EOP beat
-                // (no empty remainder beat follows).
-                stage_partial(64, in_data, out_cnt, 0, 1'b1);
+                // total <= 64: emit the buffered body as the final EOP beat.
+                // A remainder shorter than 64 (e.g. 56 + k for k < 8) must
+                // keep its true length: padding with stale lanes corrupts
+                // the CRC and length accounting.
+                stage_partial(total, in_data, out_cnt, 0, 1'b1);
                 emit_valid <= 1'b1;
                 emit_sop   <= body_first;
                 emit_eop   <= 1'b1;
                 emit_error <= error_q | in_error;
-                emit_keep  <= keep_mask(64);
-                emit_pos   <= 64;
+                emit_keep  <= keep_mask(total);
+                emit_pos   <= total;
                 body_first <= 1'b0;
                 flush_remain <= 1'b0;
                 state      <= FLUSH;
@@ -326,7 +338,12 @@ module rx_preamble_detect #(
 
         FLUSH: begin
           if (!emit_valid && flush_remain) begin
-            // Emit the remainder as the final EOP beat.
+            // Emit the remainder as the final EOP beat. This edge stages
+            // the frame's EOP beat, which the consumers handshake later:
+            // fcs_present_q must NOT be cleared here (the crc/length
+            // stages sample it at the EOP handshake). It is cleared in
+            // the !emit_valid branch below, after the staged beat has
+            // been consumed.
             stage_partial(out_cnt, '0, out_cnt, 0, 1'b1);
             emit_valid  <= 1'b1;
             emit_sop    <= 1'b0;
@@ -342,6 +359,7 @@ module rx_preamble_detect #(
           end else if (!emit_valid) begin
             // Runt flush with empty remainder: nothing to emit.
             error_q    <= 1'b0;
+            fcs_present_q <= 1'b0;
             body_first <= 1'b0;
             state      <= SEARCH;
           end
