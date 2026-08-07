@@ -153,15 +153,20 @@ endtask
 /**
  * @brief Drives one frame as a sequence of native RS beats.
  *
- * Packs the line-side frame bytes (preamble + SFD + DA + SA +
- * ether_type + payload and, when insert_fcs is set, the FCS)
- * into keep_width-byte beats (mac_if KEEP_WIDTH), starting at
- * lane 0.
+ * UTL-074: the line-side frame bytes are built by the shared codec
+ * (mac_frame_codec_c::frame_to_rs: preamble + SFD + DA/SA/ET + payload
+ * and, when insert_fcs is set, the LSB-first FCS), and the beat geometry
+ * is utility-derived: beat count via ceil_div, contiguous-low keep via
+ * keep_from_valid_bytes, beat lane bytes via extract_beat_bytes, and the
+ * IPG idle cycles via ipg_cycles_from_valid_bytes. Handshake timing is
+ * unchanged (send_beat). All frame_xtn items are constrained to the
+ * standard preamble (7 x 0x55) and SFD (0xD5), so the canonical codec
+ * output is byte-identical to the previous manual packing.
  *
  * Error injection (gated by cfg_h.enable_error_injection):
  *  - crc_error: the item already carries a corrupted FCS; the
  *    wire error signal stays 0 (rx_crc_check flags the residue).
- *  - length_error: the ether_type field is overridden with
+ *  - length_error: the canonical ether_type is overridden with
  *    payload.size() - RS_LEN_ERR_OFFSET, which is always <= 1500
  *    and mismatched with the counted payload => invalid_length
  *    in rx_length_check.
@@ -171,69 +176,52 @@ endtask
  * @param item Transaction to drive.
  */
 task rs_driver_c::drive_frame(frame_xtn_c item);
-  byte unsigned frame_q [];
+  mac_frame_c    canon;
+  byte unsigned  wire_q[$];
   int            frame_size;
   int            beats;
-  int            byte_idx;
+  int            valid_bytes;
   logic [511:0]  data;
   logic [63:0]   keep;
   logic [6:0]    eop_pos;
   bit            last_err;
   bit            fcs_present;
-  logic [15:0]   ether_type;
 
-  frame_size = mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_HDR_BYTES + item.payload.size() +
-               (item.insert_fcs ? mac_test_pkg::RS_FCS_BYTES : 0);
-  frame_q    = new[frame_size];
-
-  // Preamble (7 x 0x55) and SFD (0xD5)
-  for (int i = 0; i < mac_test_pkg::RS_PREAMBLE_BYTES; i++)
-    frame_q[i] = item.preamble[mac_test_pkg::RS_PREAMBLE_BYTES * 8 - 1 - 8*i -: 8];
-  frame_q[mac_test_pkg::RS_PREAMBLE_BYTES] = item.sfd;
-
-  // Ethernet header: DA, SA, ether_type (big-endian)
-  for (int i = 0; i < mac_test_pkg::RS_DA_BYTES; i++)
-    frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + i] = item.dst_addr[47 - 8*i -: 8];
-  for (int i = 0; i < mac_test_pkg::RS_SA_BYTES; i++)
-    frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_DA_BYTES + i] = item.src_addr[47 - 8*i -: 8];
-
+  canon = new();
+  canon.da               = item.dst_addr;
+  canon.sa               = item.src_addr;
   // length_error injection: override ether_type with a length
   // value mismatched with the counted payload => invalid_length.
-  ether_type = (item.length_error && cfg_h.enable_error_injection) ?
-               item.payload.size() - mac_test_pkg::RS_LEN_ERR_OFFSET : item.ether_type;
-  frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_HDR_BYTES - 2] = ether_type[15:8];
-  frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_HDR_BYTES - 1] = ether_type[7:0];
+  canon.ether_type       = (item.length_error && cfg_h.enable_error_injection) ?
+                           item.payload.size() - mac_test_pkg::RS_LEN_ERR_OFFSET :
+                           item.ether_type;
+  canon.payload = new[item.payload.size()];
+  foreach (item.payload[i])
+    canon.payload[i] = item.payload[i];
+  canon.fcs              = item.fcs;
+  canon.fcs_present      = item.insert_fcs;
+  canon.preamble_present = 1'b1;
+  canon.sfd              = 8'hD5;
 
-  // Payload
-  foreach (item.payload[i]) frame_q[mac_test_pkg::RS_MIN_FRAME_BYTES + i] = item.payload[i];
-
-  // FCS (LSB-first on the wire: fcs[7:0] first), only when insert_fcs
-  // is set. This matches the DUT TX emission order and makes the DUT
-  // RX residue check (rx_crc_check, CRC32_RESIDUE over DA..FCS) pass.
-  if (item.insert_fcs) begin
-    frame_q[frame_size - mac_test_pkg::RS_FCS_BYTES + 0] = item.fcs[7:0];
-    frame_q[frame_size - mac_test_pkg::RS_FCS_BYTES + 1] = item.fcs[15:8];
-    frame_q[frame_size - mac_test_pkg::RS_FCS_BYTES + 2] = item.fcs[23:16];
-    frame_q[frame_size - mac_test_pkg::RS_FCS_BYTES + 3] = item.fcs[31:24];
+  if (mac_frame_codec_c::frame_to_rs(canon, wire_q) != 0) begin
+    `uvm_error(get_type_name(), "frame_to_rs failed for RS drive")
+    return;
   end
 
   fcs_present = item.insert_fcs;
-  beats = (frame_size + vif.KEEP_WIDTH - 1) / vif.KEEP_WIDTH;
+  frame_size  = wire_q.size();
+  beats       = mac_hvl_utils_c::ceil_div(frame_size, vif.KEEP_WIDTH);
   for (int b = 0; b < beats; b++) begin
-    data = '0;
-    keep = '0;
-    for (int lane = 0; lane < vif.KEEP_WIDTH; lane++) begin
-      byte_idx = b * vif.KEEP_WIDTH + lane;
-      if (byte_idx < frame_size) begin
-        data[lane * 8 +: 8] = frame_q[byte_idx];
-        keep[lane]          = 1'b1;
-      end
-    end
+    valid_bytes = (frame_size - b * vif.KEEP_WIDTH >= vif.KEEP_WIDTH) ?
+                  vif.KEEP_WIDTH : frame_size - b * vif.KEEP_WIDTH;
+    keep = mac_hvl_utils_c::keep_from_valid_bytes(valid_bytes, vif.KEEP_WIDTH);
+    void'(mac_hvl_utils_c::extract_beat_bytes(wire_q, data, valid_bytes,
+                                              vif.KEEP_WIDTH));
     // alignment_error asserts on the final beat only: a beat-0
     // error would drop the frame at the preamble detector SEARCH.
     last_err = (b == beats - 1) &&
                (item.alignment_error && cfg_h.enable_error_injection);
-    eop_pos  = (b == beats - 1) ? (frame_size - vif.KEEP_WIDTH * (beats - 1)) : '0;
+    eop_pos  = (b == beats - 1) ? valid_bytes : '0;
     send_beat(data, keep, (b == 0), (b == beats - 1), eop_pos, last_err,
               fcs_present);
   end
@@ -242,10 +230,9 @@ task rs_driver_c::drive_frame(frame_xtn_c item);
   // frames. The final beat's unused lanes already count toward
   // the gap; only the shortfall needs extra idle cycles.
   begin
-    int in_beat_idle = (vif.KEEP_WIDTH - eop_pos) * 8;
-    int ipg_cycles   = (cfg_h.ipg_bits > in_beat_idle) ?
-                       ((cfg_h.ipg_bits - in_beat_idle + vif.DATA_WIDTH - 1) /
-                        vif.DATA_WIDTH) : 0;
+    int ipg_cycles = mac_hvl_utils_c::ipg_cycles_from_valid_bytes(
+                         valid_bytes, vif.KEEP_WIDTH, vif.DATA_WIDTH,
+                         cfg_h.ipg_bits);
     repeat (ipg_cycles) @(posedge vif.clk);
   end
 

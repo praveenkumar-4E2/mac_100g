@@ -27,6 +27,336 @@
   class mac_hvl_utils_c;
     protected function new();
     endfunction
+
+    // Returns 1'b1 iff `keep` is a contiguous run of set bits starting at
+    // lane 0 (a mask of the form 2^n - 1) within [0:keep_width-1] AND every
+    // bit at or above keep_width is clear. `keep_width` is the active
+    // interface KEEP_WIDTH (mac_if / axi4_stream_if geometry); this class
+    // defines no global width, so callers pass the geometry in. The mask is
+    // carried at the maximum lane count (64 lanes / 512-bit data) and
+    // zero-extended by callers of narrower interfaces.
+    //
+    // An empty mask (keep == '0) is contiguous-low: it represents zero valid
+    // bytes and passes the (keep & (keep + 1)) == '0 test used by the legacy
+    // RS monitor check. Whether zero valid bytes is legal for a given beat is
+    // the caller's contract, not this function's.
+    static function bit is_contiguous_low_mask(
+        input bit [63:0]   keep,
+        input int unsigned keep_width
+    );
+      bit [63:0] low_mask;
+      low_mask = (keep_width >= 64) ? 64'hFFFF_FFFF_FFFF_FFFF
+                                    : (64'h1 << keep_width) - 64'h1;
+      return ((keep & ~low_mask) == '0) &&
+             ((keep & low_mask & ((keep & low_mask) + 64'h1)) == '0);
+    endfunction
+
+    // Returns the number of valid byte lanes in `keep` within
+    // [0:keep_width-1], derived only from the input mask (no side channel).
+    // For a legal contiguous-low mask this is exactly the number of set
+    // lanes. For a malformed (non-contiguous or over-width) mask the result
+    // is the count of set bits within the width — deterministic, and the
+    // caller validates legality with is_contiguous_low_mask when required.
+    static function int unsigned valid_bytes_from_keep(
+        input bit [63:0]   keep,
+        input int unsigned keep_width
+    );
+      bit [63:0] low_mask;
+      low_mask = (keep_width >= 64) ? 64'hFFFF_FFFF_FFFF_FFFF
+                                    : (64'h1 << keep_width) - 64'h1;
+      return $countones(keep & low_mask);
+    endfunction
+
+    // Returns the contiguous-low keep mask for `valid_bytes` valid lanes
+    // within [0:keep_width-1], the inverse of valid_bytes_from_keep for
+    // legal sizes.
+    //
+    // Legal full-beat behavior is explicit: valid_bytes == keep_width yields
+    // the width-respecting all-ones mask (keep_width set bits), because
+    // `1 << keep_width` would overflow at keep_width == 64. Bits at or above
+    // keep_width are never set, so the result always passes
+    // is_contiguous_low_mask. valid_bytes > keep_width is out of range for
+    // this geometry and clamps to the same full-beat mask. An empty
+    // valid_bytes == 0 yields the zero mask (no valid lanes).
+    static function bit [63:0] keep_from_valid_bytes(
+        input int unsigned valid_bytes,
+        input int unsigned keep_width
+    );
+      bit [63:0] low_mask;
+      low_mask = (keep_width >= 64) ? 64'hFFFF_FFFF_FFFF_FFFF
+                                    : (64'h1 << keep_width) - 64'h1;
+      if (valid_bytes == 0)
+        return '0;
+      if (valid_bytes >= keep_width)
+        return low_mask;
+      return (64'h1 << valid_bytes) - 64'h1;
+    endfunction
+
+    // Returns the final-beat EOP valid-byte count derived from `keep`
+    // (eop_pos semantics per rs_drv.sv/rs_mon.sv: valid byte count on the
+    // final beat, where a full beat is eop_pos == keep_width and a partial
+    // beat satisfies keep == (1 << eop_pos) - 1):
+    //  - legal contiguous-low mask: byte count = valid_bytes (empty -> 0,
+    //    partial -> n, full beat -> keep_width);
+    //  - invalid mask (non-contiguous, or set bits at/above keep_width):
+    //    returns -1, a value outside the legal [0:keep_width] range, as the
+    //    defined invalid-mask result.
+    static function int eop_pos_from_keep(
+        input bit [63:0]   keep,
+        input int unsigned keep_width
+    );
+      if (!is_contiguous_low_mask(keep, keep_width))
+        return -1;
+      return int'(valid_bytes_from_keep(keep, keep_width));
+    endfunction
+
+    // Returns ceil(numerator / denominator) for non-negative inputs, e.g.
+    // whole beat/cycle counts from byte counts.
+    //
+    // Defined zero-denominator handling: a denominator of 0 is invalid and
+    // returns -1, a value outside the legal >= 0 result range (consistent
+    // with the eop_pos_from_keep invalid-result convention). Callers must
+    // validate their denominator (interface DATA_WIDTH/KEEP_WIDTH, IPG bits,
+    // etc.) before use. The intermediate (numerator + denominator - 1) can
+    // overflow 32 bits only for inputs near 2^32, which byte/cycle counts
+    // never approach.
+    static function int ceil_div(
+        input int unsigned numerator,
+        input int unsigned denominator
+    );
+      if (denominator == 0)
+        return -1;
+      return int'((numerator + denominator - 1) / denominator);
+    endfunction
+
+    // Returns the number of whole idle cycles the IPG occupies beyond the
+    // unused lanes of the final data beat, for a frame whose final beat has
+    // `valid_bytes` valid bytes (rs_mon.sv::check_ipg contract).
+    //
+    //  - valid_bytes : final-beat valid byte count (0..keep_width);
+    //  - keep_width  : active interface KEEP_WIDTH;
+    //  - data_width  : active interface DATA_WIDTH (keep_width * 8);
+    //  - ipg_bits    : configured inter-packet gap in bit-times (e.g.
+    //                  RS_IPG_BITS_DEFAULT = 96).
+    //
+    // unused_bits = (keep_width - valid_bytes) * 8 is credited against the
+    // IPG. If ipg_bits <= unused_bits the gap is already satisfied by the
+    // final beat (0 whole cycles); otherwise ceil((ipg_bits - unused_bits) /
+    // data_width) whole cycles are required. This is the `gap_idle_cnt` the
+    // RS monitor latches between frames.
+    //
+    // A zero data_width (or keep_width) or valid_bytes > keep_width is an
+    // invalid geometry/input and returns -1.
+    static function int ipg_cycles_from_valid_bytes(
+        input int unsigned valid_bytes,
+        input int unsigned keep_width,
+        input int unsigned data_width,
+        input int unsigned ipg_bits
+    );
+      int unsigned unused_bits;
+      if (data_width == 0 || keep_width == 0 || valid_bytes > keep_width)
+        return -1;
+      unused_bits = (keep_width - valid_bytes) * 8;
+      if (ipg_bits <= unused_bits)
+        return 0;
+      return ceil_div(ipg_bits - unused_bits, data_width);
+    endfunction
+
+    // Appends the valid bytes of one beat to a byte queue: lane i maps to
+    // bits [8*i +: 8] (lane 0 = bits [7:0]) and only lanes [0:valid_bytes-1]
+    // are appended, preserving lane order. `data` is carried at the maximum
+    // data width (512 bits); keep_width is the active interface KEEP_WIDTH.
+    //
+    // Pure helper: it performs no UVM reporting. Returns the number of bytes
+    // appended (valid_bytes), or -1 if keep_width > 64 or valid_bytes >
+    // keep_width (invalid geometry/input).
+    static function int append_beat_bytes(
+        ref byte unsigned q[$],
+        input bit [511:0] data,
+        input int unsigned valid_bytes,
+        input int unsigned keep_width
+    );
+      if (keep_width > 64 || valid_bytes > keep_width)
+        return -1;
+      for (int i = 0; i < valid_bytes; i++)
+        q.push_back(data[8*i +: 8]);
+      return int'(valid_bytes);
+    endfunction
+
+    // Extracts the next `nbytes` bytes from the front of a byte queue into a
+    // beat's low lanes: lane i receives queue byte i (lane 0 = bits [7:0]);
+    // lanes at or above the extracted count are zeroed.
+    //
+    // Pure helper: it performs no UVM reporting. Returns the number of bytes
+    // extracted (less than nbytes when the queue is short, so a short frame
+    // is caller-visible), or -1 if keep_width > 64 or nbytes > keep_width
+    // (invalid geometry/input).
+    static function int extract_beat_bytes(
+        ref byte unsigned q[$],
+        output bit [511:0] data,
+        input int unsigned nbytes,
+        input int unsigned keep_width
+    );
+      int cnt;
+      data = '0;
+      if (keep_width > 64 || nbytes > keep_width)
+        return -1;
+      for (int i = 0; i < nbytes; i++) begin
+        if (q.size() == 0)
+          break;
+        data[8*i +: 8] = q.pop_front();
+        cnt++;
+      end
+      return cnt;
+    endfunction
+
+    // Encodes a 48-bit address (DA/SA) big-endian: the most significant byte
+    // is the first byte on the wire, appended to the queue head. `addr` is
+    // bounded by its 48-bit type so there is no invalid input.
+    //
+    // Pure helper: no UVM reporting. Returns the number of bytes appended (6).
+    static function int encode_be48(
+        ref byte unsigned q[$],
+        input bit [47:0] addr
+    );
+      for (int i = 0; i < 6; i++)
+        q.push_back(addr[47 - 8*i -: 8]);
+      return 6;
+    endfunction
+
+    // Encodes a 16-bit field (EtherType/Length) big-endian: the most
+    // significant byte is the first byte on the wire, appended to the queue
+    // head. `value` is bounded by its 16-bit type so there is no invalid
+    // input.
+    //
+    // Pure helper: no UVM reporting. Returns the number of bytes appended (2).
+    static function int encode_be16(
+        ref byte unsigned q[$],
+        input bit [15:0] value
+    );
+      q.push_back(value[15:8]);
+      q.push_back(value[7:0]);
+      return 2;
+    endfunction
+
+    // Decodes a 48-bit address (DA/SA) big-endian from the queue head: the
+    // first byte on the wire is the most significant byte. The operation is
+    // atomic — on a short queue the bytes are left in place.
+    //
+    // Pure helper: no UVM reporting. Returns the number of bytes consumed (6),
+    // or -1 if the queue holds fewer than 6 bytes.
+    static function int decode_be48(
+        ref byte unsigned q[$],
+        output bit [47:0] addr
+    );
+      if (q.size() < 6)
+        return -1;
+      addr = '0;
+      for (int i = 0; i < 6; i++)
+        addr[47 - 8*i -: 8] = q.pop_front();
+      return 6;
+    endfunction
+
+    // Decodes a 16-bit field (EtherType/Length) big-endian from the queue
+    // head: the first byte on the wire is the most significant byte. The
+    // operation is atomic — on a short queue the bytes are left in place.
+    //
+    // Pure helper: no UVM reporting. Returns the number of bytes consumed (2),
+    // or -1 if the queue holds fewer than 2 bytes.
+    static function int decode_be16(
+        ref byte unsigned q[$],
+        output bit [15:0] value
+    );
+      if (q.size() < 2)
+        return -1;
+      value = {q.pop_front(), q.pop_front()};
+      return 2;
+    endfunction
+
+    // Converts a 32-bit FCS value to the four wire bytes in LSB-first order:
+    // bit 0 is the first bit on the wire, so wire byte 0 = fcs[7:0], byte 1
+    // = fcs[15:8], byte 2 = fcs[23:16], byte 3 = fcs[31:24]. This matches an
+    // LSB-first (reflected) CRC engine's register value. `fcs` is bounded by
+    // its 32-bit type so there is no invalid input.
+    //
+    // Pure helper: no UVM reporting. Returns the number of bytes appended (4).
+    static function int fcs_to_wire_bytes(
+        ref byte unsigned q[$],
+        input bit [31:0] fcs
+    );
+      q.push_back(fcs[7:0]);
+      q.push_back(fcs[15:8]);
+      q.push_back(fcs[23:16]);
+      q.push_back(fcs[31:24]);
+      return 4;
+    endfunction
+
+    // Converts four wire bytes back into a 32-bit FCS value in LSB-first
+    // order: wire byte 0 = fcs[7:0], byte 1 = fcs[15:8], byte 2 = fcs[23:16],
+    // byte 3 = fcs[31:24]. The inverse of fcs_to_wire_bytes. The operation is
+    // atomic — on a short queue the bytes are left in place.
+    //
+    // Pure helper: no UVM reporting. Returns the number of bytes consumed (4),
+    // or -1 if the queue holds fewer than 4 bytes.
+    static function int wire_bytes_to_fcs(
+        ref byte unsigned q[$],
+        output bit [31:0] fcs
+    );
+      if (q.size() < 4)
+        return -1;
+      fcs[7:0]   = q.pop_front();
+      fcs[15:8]  = q.pop_front();
+      fcs[23:16] = q.pop_front();
+      fcs[31:24] = q.pop_front();
+      return 4;
+    endfunction
+
+    // Deterministic byte-array formatting for diagnostics: renders a byte
+    // queue as lowercase two-digit hex, space separated, wrapped every
+    // bytes_per_line bytes (newline at each wrap boundary). A
+    // bytes_per_line of 0 disables wrapping (single line). Deterministic:
+    // identical input always produces the identical string.
+    //
+    // Pure helper: no UVM reporting. Always returns the formatted string.
+    static function string format_bytes(
+        byte unsigned bytes[$],
+        input int unsigned bytes_per_line
+    );
+      string s = "";
+      foreach (bytes[i]) begin
+        if (i > 0) begin
+          if (bytes_per_line > 0 && (i % bytes_per_line) == 0)
+            s = {s, "\n"};
+          else
+            s = {s, " "};
+        end
+        s = {s, $sformatf("%02x", bytes[i])};
+      end
+      return s;
+    endfunction
+
+    // Computes the IEEE 802.3 CRC-32 FCS over the given bytes (DA + SA +
+    // ether_type + payload; preamble/SFD are not FCS-covered). LSB-first
+    // reflected CRC-32 (poly 0xEDB88320, init 0xFFFFFFFF, final complement)
+    // — the same value the DUT crc32_pkg and frame_xtn_c::compute_fcs
+    // produce; the wire transmits its bytes LSB-first (fcs[7:0] first).
+    //
+    // Pure helper: no UVM reporting. The input is a byte queue; returns the
+    // 32-bit FCS value.
+    static function bit [31:0] compute_fcs32(
+        byte unsigned bytes[$]
+    );
+      bit [31:0] crc = 'hFFFF_FFFF;
+      foreach (bytes[i]) begin
+        for (int b = 0; b < 8; b++) begin
+          if (crc[0] ^ bytes[i][b])
+            crc = (crc >> 1) ^ 32'hEDB8_8320;
+          else
+            crc = crc >> 1;
+        end
+      end
+      return ~crc;
+    endfunction
   endclass
 
 `endif // MAC_HVL_UTILS_SVH

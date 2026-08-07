@@ -4,6 +4,7 @@
 +incdir+../../src/hvl_top/tb
 +incdir+../../src/hvl_top/test
 +incdir+../../src/hvl_top/pkg
++incdir+../../src/hvl_top/common
 +incdir+../../src/hvl_top/mac_agents/rs_agt_top
 +incdir+../../src/hvl_top/mac_agents/axi_agt_top
 +incdir+../../src/hvl_top/mac_agents/mac_reset_agt

@@ -83,11 +83,14 @@ task axi_monitor_c::run_phase(uvm_phase phase);
       continue;
     end
     if (vif.mon_cb.tvalid && vif.mon_cb.tready) begin
-      for (int i = 0; i < $bits(vif.mon_cb.tkeep); i++) begin
-        if (vif.mon_cb.tkeep[i]) begin
-          frame_q.push_back(vif.mon_cb.tdata[i * 8 +: 8]);
-        end
-      end
+      // UTL-076: beat capture is utility-derived — the contiguous-low
+      // tkeep maps to a valid-byte count (valid_bytes_from_keep), and
+      // append_beat_bytes moves the low lanes onto the frame queue.
+      void'(mac_hvl_utils_c::append_beat_bytes(
+                frame_q, vif.mon_cb.tdata,
+                mac_hvl_utils_c::valid_bytes_from_keep(
+                    vif.mon_cb.tkeep, $bits(vif.mon_cb.tkeep)),
+                $bits(vif.mon_cb.tkeep)));
       if (vif.mon_cb.tlast) begin
         collect_item(frame_q, vif.mon_cb.tuser);
         frame_q.delete();
@@ -99,59 +102,40 @@ endtask
 /**
  * @brief Converts a completed frame byte stream into a transaction.
  *
- * Parses DA, SA, ether_type (big-endian), payload, and the FCS
- * when fcs_present is asserted, then writes the item through the
- * analysis port. Frames shorter than the 14-byte header are
- * reported as errors and dropped.
+ * UTL-068: all parsing is delegated to `mac_frame_codec_c::axi_to_frame`
+ * (the single source of truth for AXI byte layout — big-endian header,
+ * tuser[1] FCS-present, tuser[0] error). This monitor retains only its
+ * handshake sampling (run_phase), the malformed-frame error report, and the
+ * analysis-port publication; it then maps the canonical frame onto the item.
  *
  * @param frame_q Frame bytes in wire order.
- * @param tuser   Side-note flags of the final beat.
+ * @param tuser   Sideband flags of the final beat.
  */
 function void axi_monitor_c::collect_item(byte unsigned frame_q[$], bit [7:0] tuser);
-  bit        fcs_present = tuser[1];
-  bit        error_flag  = tuser[0];
-  int        nbytes;
-  int        n_payload;
+  mac_frame_c canon;
+  int nbytes = frame_q.size();
 
-  nbytes = frame_q.size();
-  if (nbytes < 14) begin
+  if (mac_frame_codec_c::axi_to_frame(frame_q, tuser, nbytes,
+                                      MAC_FRAME_DIR_AXI_TX, RS_ETH_LEN_BOUND,
+                                      canon) != 0) begin
     `uvm_error(get_type_name(),
-               $sformatf("malformed frame: only %0d bytes (< 14 byte header)", nbytes))
+               $sformatf("axi_to_frame rejected %0d-byte frame (tuser=%02x)",
+                         nbytes, tuser))
     return;
   end
 
   axi_item_h = axi_item_c::type_id::create("axi_item_h");
-
-  // Ethernet header, big-endian
-  axi_item_h.dst_addr = '0;
-  axi_item_h.src_addr = '0;
-  axi_item_h.ether_type = '0;
-  for (int i = 0; i < 6; i++) axi_item_h.dst_addr = (axi_item_h.dst_addr << 8) | frame_q[i];
-  for (int i = 0; i < 6; i++) axi_item_h.src_addr = (axi_item_h.src_addr << 8) | frame_q[6 + i];
-  axi_item_h.ether_type = (axi_item_h.ether_type << 8) | frame_q[12];
-  axi_item_h.ether_type = (axi_item_h.ether_type << 8) | frame_q[13];
-
-  // Payload (FCS is not part of the payload)
-  n_payload = nbytes - 14 - (fcs_present ? 4 : 0);
-  if (n_payload < 0) begin
-    `uvm_error(get_type_name(),
-               $sformatf("malformed frame: %0d bytes with fcs_present", nbytes))
-    return;
-  end
-  axi_item_h.payload = new[n_payload];
-  foreach (axi_item_h.payload[i]) axi_item_h.payload[i] = frame_q[14 + i];
-
-  // FCS: last 4 bytes, carried LSB-first on the wire (fcs[7:0] first)
-  axi_item_h.insert_fcs = fcs_present;
-  if (fcs_present) begin
-    axi_item_h.fcs = '0;
-    for (int i = 0; i < 4; i++)
-      axi_item_h.fcs[8*i +: 8] = frame_q[nbytes - 4 + i];
-  end else begin
-    axi_item_h.fcs = '0;
-  end
-
-  axi_item_h.crc_error       = error_flag;
+  axi_item_h.dst_addr       = canon.da;
+  axi_item_h.src_addr       = canon.sa;
+  axi_item_h.ether_type     = canon.ether_type;
+  axi_item_h.payload        = new[canon.payload.size()];
+  foreach (canon.payload[i])
+    axi_item_h.payload[i] = canon.payload[i];
+  axi_item_h.insert_fcs     = canon.fcs_present;
+  axi_item_h.fcs            = canon.fcs;
+  // AXI status comes from the tuser error bit (mapped by the codec onto the
+  // canonical result); length/alignment are not transported on AXI.
+  axi_item_h.crc_error      = (canon.result == MAC_FRAME_RESULT_CRC_ERROR);
   axi_item_h.length_error    = 1'b0;
   axi_item_h.alignment_error = 1'b0;
 

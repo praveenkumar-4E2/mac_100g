@@ -96,58 +96,49 @@ endtask
 /**
  * @brief Drives one MAC frame as a sequence of AXI4-Stream beats.
  *
- * Packs the frame bytes (DA, SA, ether_type, payload and, when
- * insert_fcs is set, the FCS) into 64-byte beats, starting at
- * lane 0. tuser[1] (fcs_present) mirrors insert_fcs, tuser[0]
- * (error) mirrors crc_error. length_error and alignment_error
- * have no AXI4-Stream transport and are currently ignored.
+ * UTL-072: the wire frame is built with the shared utilities (big-endian
+ * header via encode_be48/encode_be16, LSB-first FCS via
+ * fcs_to_wire_bytes), and the beat geometry is utility-derived: the beat
+ * count via ceil_div, the contiguous-low tkeep via keep_from_valid_bytes,
+ * and the beat's lane bytes via extract_beat_bytes. Handshake timing is
+ * unchanged (send_beat).
+ *
+ * Packs the frame bytes (DA, SA, ether_type, payload and, when insert_fcs
+ * is set, the FCS) into 64-byte beats, starting at lane 0. tuser[1]
+ * (fcs_present) mirrors insert_fcs, tuser[0] (error) mirrors crc_error.
+ * length_error and alignment_error have no AXI4-Stream transport and are
+ * currently ignored.
  *
  * @param item Transaction to drive.
  */
 task axi_driver_c::drive_frame(axi_item_c item);
-  byte unsigned frame_q [];
-  int            frame_size;
-  int            beats;
-  int            nbytes;
-  int            byte_idx;
-  logic [511:0]  tdata;
-  logic [63:0]   tkeep;
-  bit [7:0]      tuser;
+  byte unsigned frame_q[$];
+  bit [511:0]   tdata;
+  bit [63:0]    tkeep;
+  bit [7:0]     tuser;
+  int           frame_size;
+  int           beats;
+  int           valid_bytes;
 
-  frame_size = 14 + item.payload.size() + (item.insert_fcs ? 4 : 0);
-  frame_q    = new[frame_size];
+  // Ethernet header (DA, SA, ether_type) big-endian, then payload, then the
+  // client-supplied FCS LSB-first (fcs[7:0] first, the byte order the DUT
+  // TX path expects from tx_client_capture's fcs_tail window).
+  void'(mac_hvl_utils_c::encode_be48(frame_q, item.dst_addr));
+  void'(mac_hvl_utils_c::encode_be48(frame_q, item.src_addr));
+  void'(mac_hvl_utils_c::encode_be16(frame_q, item.ether_type));
+  foreach (item.payload[i])
+    frame_q.push_back(item.payload[i]);
+  if (item.insert_fcs)
+    void'(mac_hvl_utils_c::fcs_to_wire_bytes(frame_q, item.fcs));
 
-  // Ethernet header: DA, SA, ether_type (big-endian)
-  for (int i = 0; i < 6; i++) frame_q[i]     = item.dst_addr[47 - 8*i -: 8];
-  for (int i = 0; i < 6; i++) frame_q[6 + i] = item.src_addr[47 - 8*i -: 8];
-  frame_q[12] = item.ether_type[15:8];
-  frame_q[13] = item.ether_type[7:0];
-
-  // Payload
-  foreach (item.payload[i]) frame_q[14 + i] = item.payload[i];
-
-  // Client-supplied FCS (LSB-first: fcs[7:0] first, the byte order the
-  // DUT TX path expects from tx_client_capture's fcs_tail window).
-  if (item.insert_fcs) begin
-    frame_q[frame_size - 4] = item.fcs[7:0];
-    frame_q[frame_size - 3] = item.fcs[15:8];
-    frame_q[frame_size - 2] = item.fcs[23:16];
-    frame_q[frame_size - 1] = item.fcs[31:24];
-  end
-
+  frame_size = frame_q.size();
   tuser = {6'b0, item.insert_fcs, item.crc_error};
 
-  beats = (frame_size + 63) / 64;
+  beats = mac_hvl_utils_c::ceil_div(frame_size, 64);
   for (int b = 0; b < beats; b++) begin
-    tdata = '0;
-    tkeep = '0;
-    for (int lane = 0; lane < 64; lane++) begin
-      byte_idx = b * 64 + lane;
-      if (byte_idx < frame_size) begin
-        tdata[lane * 8 +: 8] = frame_q[byte_idx];
-        tkeep[lane]          = 1'b1;
-      end
-    end
+    valid_bytes = (frame_size - b * 64 >= 64) ? 64 : frame_size - b * 64;
+    tkeep = mac_hvl_utils_c::keep_from_valid_bytes(valid_bytes, 64);
+    void'(mac_hvl_utils_c::extract_beat_bytes(frame_q, tdata, valid_bytes, 64));
     send_beat(tdata, tkeep, (b == beats - 1), tuser);
   end
 

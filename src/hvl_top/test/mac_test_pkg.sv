@@ -5,6 +5,9 @@ package mac_test_pkg;
   `include "mac_hvl_constants.svh"
   `include "mac_hvl_types.svh"
   `include "mac_hvl_utils.svh"
+  `include "mac_frame_c.svh"
+  `include "mac_frame_codec.svh"
+  `include "mac_compare_utils.svh"
 
   `include "rs_agt_config.sv"
   `include "axi_agt_config.sv"
@@ -41,5 +44,7 @@ package mac_test_pkg;
   `include "mac_virtual_seq.sv"
 
   `include "mac_vtest_lib.sv"
+
+  `include "mac_hvl_utils_test.svh"
 
 endpackage

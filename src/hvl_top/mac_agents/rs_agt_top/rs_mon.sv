@@ -183,9 +183,14 @@ task rs_monitor_c::capture_beat();
 
     beats++;
 
-    for (int l = 0; l < vif.KEEP_WIDTH; l++)
-      if (vif.mon_cb.keep[l])
-        frame_q.push_back(vif.mon_cb.data[l*8 +: 8]);
+    // UTL-076: beat capture is utility-derived — the contiguous-low keep
+    // maps to a valid-byte count (valid_bytes_from_keep), and
+    // append_beat_bytes moves the low lanes onto the frame queue.
+    void'(mac_hvl_utils_c::append_beat_bytes(
+              frame_q, vif.mon_cb.data,
+              mac_hvl_utils_c::valid_bytes_from_keep(vif.mon_cb.keep,
+                                                     vif.KEEP_WIDTH),
+              vif.KEEP_WIDTH));
 
     beat_eop   = vif.mon_cb.eop;
     eop_pos_v  = vif.mon_cb.eop_pos;
@@ -206,31 +211,34 @@ endtask
  *    (1 << eop_pos) - 1,
  *  - interior beats: keep all ones, error deasserted, and
  *    eop_pos zero.
+ *
+ * UTL-076: the mask geometry is validated with the shared utilities
+ * (is_contiguous_low_mask, eop_pos_from_keep, keep_from_valid_bytes)
+ * instead of hand-rolled bit arithmetic.
  */
 task rs_monitor_c::check_keep();
+  bit [63:0] full_keep;
+
   if (vif.mon_cb.keep == '0)
     `uvm_error(get_type_name(), "keep = 0 on valid beat")
-  // 64'h1 is width-matched to the keep field (KEEP_WIDTH bits;
-  // an unsized literal would truncate the +1 to 32 bits and
-  // break the carry through the top lanes).
-  else if ((vif.mon_cb.keep & (vif.mon_cb.keep + 64'h1)) != '0)
+  else if (!mac_hvl_utils_c::is_contiguous_low_mask(vif.mon_cb.keep,
+                                                    vif.KEEP_WIDTH))
     `uvm_error(get_type_name(),
                $sformatf("keep %h is not a contiguous-ones prefix mask",
                          vif.mon_cb.keep))
 
+  full_keep = mac_hvl_utils_c::keep_from_valid_bytes(vif.KEEP_WIDTH,
+                                                     vif.KEEP_WIDTH);
   if (beat_eop) begin
-    if (eop_pos_v == vif.KEEP_WIDTH) begin
-      if (vif.mon_cb.keep != '1)
-        `uvm_error(get_type_name(),
-                   $sformatf("full final beat keep %h != all ones",
-                             vif.mon_cb.keep))
-    end else if (vif.mon_cb.keep != ((64'h1 << eop_pos_v) - 1)) begin
+    if (mac_hvl_utils_c::eop_pos_from_keep(vif.mon_cb.keep,
+                                           vif.KEEP_WIDTH) != eop_pos_v)
       `uvm_error(get_type_name(),
                  $sformatf("final beat keep %h != (1<<eop_pos)-1 (%h)",
-                           vif.mon_cb.keep, ((64'h1 << eop_pos_v) - 1)))
-    end
+                           vif.mon_cb.keep,
+                           mac_hvl_utils_c::keep_from_valid_bytes(
+                               eop_pos_v, vif.KEEP_WIDTH)))
   end else begin
-    if (vif.mon_cb.keep != '1)
+    if (vif.mon_cb.keep != full_keep)
       `uvm_error(get_type_name(),
                  $sformatf("interior beat keep %h != all ones",
                            vif.mon_cb.keep))
@@ -252,6 +260,10 @@ endtask
  * unused lanes plus whole idle cycles (gap_idle_cnt, latched
  * by capture_beat), rounded up from cfg_h.ipg_bits to the
  * beat boundary.
+ *
+ * UTL-076: the expected whole-cycle count is derived with
+ * ipg_cycles_from_valid_bytes (the single source of truth for
+ * IPG geometry) instead of the inline ceiling formula.
  */
 task rs_monitor_c::check_ipg();
   int idle_bits;
@@ -261,10 +273,9 @@ task rs_monitor_c::check_ipg();
     return;
 
   idle_bits = (vif.KEEP_WIDTH - prev_eop_pos) * 8 + gap_idle_cnt * vif.DATA_WIDTH;
-  expected  = (cfg_h.ipg_bits > (vif.KEEP_WIDTH - prev_eop_pos) * 8) ?
-              (((cfg_h.ipg_bits - (vif.KEEP_WIDTH - prev_eop_pos) * 8 +
-                 vif.DATA_WIDTH - 1) / vif.DATA_WIDTH) * vif.DATA_WIDTH +
-               (vif.KEEP_WIDTH - prev_eop_pos) * 8) :
+  expected  = mac_hvl_utils_c::ipg_cycles_from_valid_bytes(
+                  prev_eop_pos, vif.KEEP_WIDTH, vif.DATA_WIDTH,
+                  cfg_h.ipg_bits) * vif.DATA_WIDTH +
               (vif.KEEP_WIDTH - prev_eop_pos) * 8;
   if (cfg_h.enable_ipg_check && idle_bits != expected)
     `uvm_error(get_type_name(),
@@ -316,14 +327,13 @@ endtask
 /**
  * @brief Reconstructs a frame_xtn_c from a captured byte stream.
  *
- * Splits the wire bytes into protocol fields and derives the
- * error flags:
- *  - crc_error: FCS present but not equal to a freshly computed
- *    CRC-32 over DA + SA + ether_type + payload (IEEE 802.3,
- *    preamble/SFD not FCS-covered).
- *  - length_error: ether_type below 0x0600 (a length field) that
- *    disagrees with the counted payload.
- *  - alignment_error: wire error on the final beat.
+ * UTL-070: field parsing is delegated to `mac_frame_codec_c::rs_to_frame`
+ * (the single source of truth for wire byte layout — big-endian header,
+ * LSB-first FCS, preamble/SFD exclusion, CRC/length/alignment status).
+ * This monitor keeps its handshake sampling, protocol checks, the raw
+ * preamble-byte copy (the canonical frame records only preamble_present and
+ * sfd), and the analysis-port publication; it then maps the canonical frame
+ * onto the item.
  *
  * @param frame_q Captured frame bytes (preamble..FCS).
  * @param eop_pos_v Valid byte count on the final beat.
@@ -334,43 +344,39 @@ endtask
 function void rs_monitor_c::frame_to_item(byte unsigned frame_q[$], int eop_pos_v,
                                           bit last_err, bit last_fcs,
                                           output frame_xtn_c item);
-  int n       = frame_q.size();
-  int pld_len = n - mac_test_pkg::RS_MIN_FRAME_BYTES - (last_fcs ? mac_test_pkg::RS_FCS_BYTES : 0);
+  mac_frame_c canon;
+  int n = frame_q.size();
+
+  if (mac_frame_codec_c::rs_to_frame(frame_q, eop_pos_v, last_err, last_fcs,
+                                     MAC_FRAME_DIR_RS_RX, cfg_h.eth_len_bound,
+                                     canon) != 0) begin
+    `uvm_error(get_type_name(),
+               $sformatf("rs_to_frame rejected %0d-byte frame (err=%0b fcs=%0b)",
+                         n, last_err, last_fcs))
+    item = null;
+    return;
+  end
 
   item = frame_xtn_c::type_id::create("item");
+  // Preamble bytes are copied straight off the wire (line-side field only;
+  // the canonical model keeps preamble_present/sfd).
   item.preamble = '0;
   for (int i = 0; i < mac_test_pkg::RS_PREAMBLE_BYTES; i++)
     item.preamble[mac_test_pkg::RS_PREAMBLE_BYTES * 8 - 1 - 8*i -: 8] = frame_q[i];
-  item.sfd      = frame_q[mac_test_pkg::RS_PREAMBLE_BYTES];
-  item.dst_addr = '0;
-  for (int i = 0; i < mac_test_pkg::RS_DA_BYTES; i++)
-    item.dst_addr[47 - 8*i -: 8] =
-      frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + i];
-  item.src_addr = '0;
-  for (int i = 0; i < mac_test_pkg::RS_SA_BYTES; i++)
-    item.src_addr[47 - 8*i -: 8] =
-      frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_DA_BYTES + i];
-  item.ether_type =
-    {frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_HDR_BYTES - 2],
-     frame_q[mac_test_pkg::RS_PREAMBLE_SFD_BYTES + mac_test_pkg::RS_HDR_BYTES - 1]};
-  item.payload = new[pld_len];
-  foreach (item.payload[i])
-    item.payload[i] = frame_q[mac_test_pkg::RS_MIN_FRAME_BYTES + i];
-  item.insert_fcs = last_fcs;
-  if (last_fcs) begin
-    // FCS is carried LSB-first on the wire (fcs[7:0] first), so the
-    // first FCS byte maps to the least-significant byte of the value.
-    item.fcs = '0;
-    for (int i = 0; i < mac_test_pkg::RS_FCS_BYTES; i++)
-      item.fcs[8*i +: 8] = frame_q[n - mac_test_pkg::RS_FCS_BYTES + i];
-  end else begin
-    item.fcs = '0;
-  end
-
-  item.crc_error       = last_fcs && (item.compute_fcs() != item.fcs);
-  item.length_error    = (item.ether_type < cfg_h.eth_len_bound) &&
-                         (item.ether_type != pld_len);
-  item.alignment_error = last_err;
+  item.sfd        = canon.sfd;
+  item.dst_addr   = canon.da;
+  item.src_addr   = canon.sa;
+  item.ether_type = canon.ether_type;
+  item.payload    = new[canon.payload.size()];
+  foreach (canon.payload[i])
+    item.payload[i] = canon.payload[i];
+  item.insert_fcs = canon.fcs_present;
+  item.fcs        = canon.fcs;
+  // Status is derived by the codec from the wire (generated FCS, ether_type
+  // length field, final-beat error) and mapped onto the item error flags.
+  item.crc_error       = (canon.result == MAC_FRAME_RESULT_CRC_ERROR);
+  item.length_error    = (canon.result == MAC_FRAME_RESULT_LENGTH_ERROR);
+  item.alignment_error = (canon.result == MAC_FRAME_RESULT_ALIGNMENT_ERROR);
 endfunction
 
 
