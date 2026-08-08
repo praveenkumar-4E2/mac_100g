@@ -8,6 +8,9 @@ class mac_base_test_c extends uvm_test;
   rs_agent_cfg_c rs_passive_agent_cfgs[];
   axi_agent_cfg_c axi_active_agent_cfgs [];
   axi_agent_cfg_c axi_passive_agent_cfgs[];
+  apb_agent_cfg_c apb_active_agent_cfgs[];
+  mac_ral_block_c ral_h;
+  mac_reset_agent_cfg_c reset_agent_cfgs[];
 
   int                 num_axi_active_agents      = 1;
   int                 num_rs_active_agents      = 0;
@@ -25,6 +28,8 @@ class mac_base_test_c extends uvm_test;
   virtual axi4_stream_if axi_rx_vif;
   virtual mac_if         mac_rx_vif;
   virtual mac_if         mac_tx_vif;
+  virtual mac_reset_if   mac_reset_vif;
+  virtual mac_reset_if   apb_reset_vif;
 
   extern function new(string name = "mac_base_test_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
@@ -55,6 +60,8 @@ function void mac_base_test_c::build_phase(uvm_phase phase);
   axi_rx_vif = tb_cfg_h.axi_rx_vif;
   mac_rx_vif = tb_cfg_h.mac_rx_vif;
   mac_tx_vif = tb_cfg_h.mac_tx_vif;
+  mac_reset_vif = tb_cfg_h.mac_reset_vif;
+  apb_reset_vif = tb_cfg_h.apb_reset_vif;
 
   if ($value$plusargs("NUM_AXI_ACTIVE=%0d", p)) num_axi_active_agents = p;
   if ($value$plusargs("NUM_AXI_PASSIVE=%0d", p)) num_axi_passive_agents = p;
@@ -66,11 +73,17 @@ function void mac_base_test_c::build_phase(uvm_phase phase);
   env_cfg_h.axi_passive_agent_cfgs  = new[num_axi_passive_agents];
   env_cfg_h.rs_active_agent_cfgs   = new[num_rs_active_agents];
   env_cfg_h.rs_passive_agent_cfgs  = new[num_rs_passive_agents];
+  env_cfg_h.reset_agent_cfgs       = new[2];
+  env_cfg_h.apb_active_agent_cfgs  = new[1];
+  env_cfg_h.apb_passive_agent_cfgs = new[0];
 
   env_cfg_h.num_axi_active_agents   = num_axi_active_agents;
   env_cfg_h.num_axi_passive_agents  = num_axi_passive_agents;
   env_cfg_h.num_rs_active_agents   = num_rs_active_agents;
   env_cfg_h.num_rs_passive_agents  = num_rs_passive_agents;
+  env_cfg_h.num_reset_agents       = env_cfg_h.reset_agent_cfgs.size();
+  env_cfg_h.num_apb_active_agents  = env_cfg_h.apb_active_agent_cfgs.size();
+  env_cfg_h.num_apb_passive_agents = env_cfg_h.apb_passive_agent_cfgs.size();
 
   set_env_config();
   if ($value$plusargs("LOGGER=%0d", p)) begin
@@ -104,10 +117,21 @@ endfunction
  * to the virtual hook run_stimulus() which derived tests override.
  */
 task mac_base_test_c::run_phase(uvm_phase phase);
+  mac_boot_virtual_sequence_c boot_seq_h;
   phase.raise_objection(this);
 
-  wait_for_rst_done();
-  #100ns;
+  foreach (env_h.reset_agent_top_h.agents[i]) begin
+    mac_reset_sequence_c reset_seq_h;
+    reset_seq_h = mac_reset_sequence_c::type_id::create($sformatf("boot_reset_seq[%0d]", i));
+    reset_seq_h.start(env_h.reset_agent_top_h.agents[i].sequencer_h);
+  end
+  boot_seq_h = mac_boot_virtual_sequence_c::type_id::create("boot_seq_h");
+  boot_seq_h.global_control_addr = tb_cfg_h.apb_cfg_addr;
+  boot_seq_h.global_control_data = tb_cfg_h.apb_cfg_data;
+  boot_seq_h.start(env_h.virtual_sequencer_h);
+  #(tb_cfg_h.config_done_delay_ns);
+  tb_cfg_h.config_done = 1'b1;
+  tb_cfg_h.reset_event = MAC_RESET_EVENT_CONFIG_DONE;
 
   run_stimulus(phase);
 
@@ -303,6 +327,24 @@ task rx_base_test_c::run_stimulus(uvm_phase phase);
 endtask
 
 function void mac_base_test_c::set_env_config();
+  apb_active_agent_cfgs = new[1];
+  apb_active_agent_cfgs[0] = apb_agent_cfg_c::type_id::create("apb_active_cfg[0]");
+  apb_active_agent_cfgs[0].m_is_active = UVM_ACTIVE;
+  apb_active_agent_cfgs[0].m_vif = tb_cfg_h.apb_vif;
+  apb_active_agent_cfgs[0].m_agent_id = 0;
+  apb_active_agent_cfgs[0].m_instance_label = "mac_register_master";
+  env_cfg_h.apb_active_agent_cfgs[0] = apb_active_agent_cfgs[0];
+  ral_h = mac_ral_block_c::type_id::create("ral_h");
+  ral_h.build();
+  env_cfg_h.ral_h = ral_h;
+  reset_agent_cfgs = new[env_cfg_h.num_reset_agents];
+  foreach (reset_agent_cfgs[i]) begin
+    reset_agent_cfgs[i] = mac_reset_agent_cfg_c::type_id::create($sformatf("reset_cfg[%0d]", i));
+    reset_agent_cfgs[i].is_active = UVM_ACTIVE;
+    reset_agent_cfgs[i].reset_id = i;
+    reset_agent_cfgs[i].vif = (i == 0) ? mac_reset_vif : apb_reset_vif;
+    env_cfg_h.reset_agent_cfgs[i] = reset_agent_cfgs[i];
+  end
   if (num_axi_active_agents) begin
     axi_active_agent_cfgs = new[num_axi_active_agents];
     foreach (axi_active_agent_cfgs[i]) begin
