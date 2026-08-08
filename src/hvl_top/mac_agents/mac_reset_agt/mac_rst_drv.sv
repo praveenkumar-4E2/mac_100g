@@ -42,6 +42,7 @@ task mac_reset_driver_c::drive_item(mac_reset_item_c item_h);
     MAC_RESET_DEASSERT: vif.rst <= mac_reset_utils_c::inactive_level(cfg_h.active_level);
     default: `uvm_fatal("RESET_ITEM", "Unsupported reset operation")
   endcase
+  mac_txn_logger_c::write(this, "DRIVE_RESET", item_h);
   `uvm_info("RESET_DRIVE", $sformatf("%s", item_h.convert2string()),
             cfg_h.enable_logger ? UVM_MEDIUM : UVM_HIGH)
 endtask

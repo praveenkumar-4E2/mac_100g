@@ -212,5 +212,6 @@ endfunction
  * @param t Completed transfer to publish.
  */
 function void apb_monitor_c::publish(apb_transfer_t t);
+  mac_txn_logger_c::write(this, "OBSERVE_APB", t);
   ap.write(t);
 endfunction

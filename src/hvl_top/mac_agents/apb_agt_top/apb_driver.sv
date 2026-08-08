@@ -90,6 +90,7 @@ task apb_driver_c::run_phase(uvm_phase phase);
       repeat (cfg_h.m_reset_release_cycles) tick();
     rsp = new_response(req);
     drive_transfer(req, rsp);
+    mac_txn_logger_c::write(this, "DRIVE_APB", rsp);
     seq_item_port.item_done(rsp);
   end
 endtask

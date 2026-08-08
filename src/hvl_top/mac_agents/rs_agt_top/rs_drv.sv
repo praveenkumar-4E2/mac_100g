@@ -191,6 +191,8 @@ task rs_driver_c::drive_frame(frame_xtn_c item);
   bit            last_err;
   bit            fcs_present;
 
+  mac_txn_logger_c::write(this, "DRIVE_RS", item);
+
   canon = new();
   canon.da               = item.dst_addr;
   canon.sa               = item.src_addr;

@@ -153,6 +153,7 @@ function void axi_monitor_c::collect_item(byte unsigned frame_q[$], bit [7:0] tu
   axi_item_h.alignment_error = 1'b0;
 
   mon_rcvd_xtn_cnt++;
+  mac_txn_logger_c::write(this, "OBSERVE_AXI", axi_item_h);
   if (cfg_h.enable_logger) begin
     `uvm_info(get_type_name(),
               $sformatf("mon observed frame: %s nbytes=%0d",

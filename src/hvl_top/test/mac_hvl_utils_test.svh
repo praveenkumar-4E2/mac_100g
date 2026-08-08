@@ -1,7 +1,7 @@
 /**
  * @brief Utility-test class (mac_test_pkg member).
  *
- * `mac_hvl_utils_test_c` executes the directed vectors for the pure utility
+ * Test-only unit regression: `mac_hvl_utils_test_c` executes the directed vectors for the pure utility
  * methods in `mac_hvl_utils_c`. It is a runnable uvm_test (selected by
  * `+UVM_TESTNAME=mac_hvl_utils_test_c`) that needs no virtual interface, no
  * environment, and no DUT stimulus: every check calls a static utility

@@ -1,3 +1,6 @@
+// Common test infrastructure. Concrete tests belong in this directory and
+// extend mac_base_test_c; agents, transactions, and environment code never
+// depend on test classes.
 class mac_base_test_c extends uvm_test;
   `uvm_component_utils(mac_base_test_c)
 

@@ -5,6 +5,7 @@ package mac_test_pkg;
   `include "mac_hvl_constants.svh"
   `include "mac_hvl_types.svh"
   `include "mac_hvl_utils.svh"
+  `include "mac_txn_logger.svh"
   `include "mac_frame_c.svh"
   `include "mac_frame_codec.svh"
   `include "mac_compare_utils.svh"
@@ -66,9 +67,11 @@ package mac_test_pkg;
   `include "mac_virtual_seq.sv"
   `include "mac_tb.sv"
 
-  `include "mac_vtest_lib.sv"
+  // Test layer: base test first, then concrete smoke/negative/unit tests.
+  `include "mac_base_test.svh"
 
   `include "mac_smoke_test.svh"
+  `include "mac_tx_payload_50_test.svh"
 
   `include "mac_neg_cfg_test.svh"
 

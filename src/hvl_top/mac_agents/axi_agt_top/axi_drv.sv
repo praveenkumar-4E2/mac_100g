@@ -131,6 +131,8 @@ task axi_driver_c::drive_frame(axi_item_c item);
   int           beats;
   int           valid_bytes;
 
+  mac_txn_logger_c::write(this, "DRIVE_AXI", item);
+
   // Ethernet header (DA, SA, ether_type) big-endian, then payload, then the
   // client-supplied FCS LSB-first (fcs[7:0] first, the byte order the DUT
   // TX path expects from tx_client_capture's fcs_tail window).

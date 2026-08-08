@@ -17,10 +17,16 @@ class mac_env_c extends uvm_env;
   extern function new(string name = "mac_env_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
   extern function void connect_phase(uvm_phase phase);
+  extern function void report_phase(uvm_phase phase);
 endclass
 
 function mac_env_c::new(string name = "mac_env_c", uvm_component parent = null);
   super.new(name, parent);
+endfunction
+
+function void mac_env_c::report_phase(uvm_phase phase);
+  super.report_phase(phase);
+  mac_txn_logger_c::close();
 endfunction
 
 function void mac_env_c::build_phase(uvm_phase phase);

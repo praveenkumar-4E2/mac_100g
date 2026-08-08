@@ -312,6 +312,7 @@ task rs_monitor_c::finish_frame();
   else begin
     frame_to_item(frame_q, eop_pos_v, last_err, last_fcs, item);
     mon_rcvd_xtn_cnt++;
+    mac_txn_logger_c::write(this, "OBSERVE_RS", item);
     if (cfg_h.enable_logger)
       `uvm_info(get_type_name(),
                 $sformatf("mon rcvd frame: %s beats=%0d bytes=%0d",
@@ -383,4 +384,3 @@ function void rs_monitor_c::frame_to_item(byte unsigned frame_q[$], int eop_pos_
   item.length_error    = (canon.result == MAC_FRAME_RESULT_LENGTH_ERROR);
   item.alignment_error = (canon.result == MAC_FRAME_RESULT_ALIGNMENT_ERROR);
 endfunction
-

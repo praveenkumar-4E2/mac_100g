@@ -1,8 +1,8 @@
 /**
  * @brief HVL façade-owned protocol constants (mac_test_pkg member).
  *
- * Migrated from src/globals/rs_globals.sv (rs_globals_pkg) WITHOUT value or
- * name changes. This file is a member of mac_test_pkg (text-included), so it
+ * Owns the UVM environment's RS/Ethernet constants. This file is a member of
+ * mac_test_pkg (text-included), so it
  * must NOT declare `package`/`endpackage`. It is included at the head of the
  * package, before agent/transaction classes, so every RS/Ethernet protocol
  * constant has one façade-owned owner.

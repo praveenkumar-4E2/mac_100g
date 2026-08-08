@@ -48,6 +48,7 @@ function void mac_reset_monitor_c::publish_event(bit is_asserted);
   item_h.operation  = is_asserted ? MAC_RESET_ASSERT : MAC_RESET_DEASSERT;
   item_h.reset_id   = cfg_h.reset_id;
   item_h.event_time = $time;
+  mac_txn_logger_c::write(this, "OBSERVE_RESET", item_h);
   analysis_port.write(item_h);
   `uvm_info("RESET_EVENT", $sformatf("%s", item_h.convert2string()),
             cfg_h.enable_logger ? UVM_MEDIUM : UVM_HIGH)
