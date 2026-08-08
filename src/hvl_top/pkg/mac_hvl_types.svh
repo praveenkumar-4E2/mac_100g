@@ -33,6 +33,18 @@
     MAC_FRAME_DIR_AXI_RX = 3
   } mac_frame_dir_e;
 
+  // Physical endpoint roles, named from the DUT point of view.  This is an
+  // architectural name only: UVM_ACTIVE/UVM_PASSIVE still selects whether an
+  // agent owns pins, but never describes the data-path role.
+  typedef enum int {
+    MAC_ENDPOINT_CLIENT_INGRESS = 0,
+    MAC_ENDPOINT_CLIENT_EGRESS  = 1,
+    MAC_ENDPOINT_LINE_INGRESS   = 2,
+    MAC_ENDPOINT_LINE_EGRESS    = 3,
+    MAC_ENDPOINT_APB            = 4,
+    MAC_ENDPOINT_RESET          = 5
+  } mac_endpoint_role_e;
+
   //========================================================================
   // Reset / configuration-completion event.
   // Describes the reset and boot handoff events that the reset agent and the
