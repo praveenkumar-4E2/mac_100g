@@ -13,6 +13,11 @@ package mac_test_pkg;
 
   `include "rs_agt_config.sv"
   `include "axi_agt_config.sv"
+  `include "apb_transfer.sv"
+  `include "apb_agent_cfg.sv"
+  `include "mac_rst_utils.sv"
+  `include "mac_rst_item.sv"
+  `include "mac_rst_agt_config.sv"
   `include "mac_env_config.sv"
   `include "frame_xtn.sv"
   `include "rs_seqr.sv"
@@ -34,20 +39,36 @@ package mac_test_pkg;
   `include "mac_rst_seqr.sv"
   `include "mac_rst_seq.sv"
   `include "mac_rst_drv.sv"
+  `include "mac_rst_mon.sv"
   `include "mac_rst_agt.sv"
   `include "mac_rst_agt_top.sv"
 
 
+  `include "apb_sequencer.sv"
+  `include "apb_sequence_base.sv"
+  `include "apb_write_sequence.sv"
+  `include "apb_read_sequence.sv"
+  `include "apb_burst_sequence.sv"
+  `include "apb_driver.sv"
+  `include "apb_monitor.sv"
+  `include "apb_protocol_checker.sv"
+  `include "apb_agent.sv"
+  `include "apb_agent_top.sv"
+
+  `include "mac_ral.svh"
+
+
   `include "mac_cov.sv"
+  `include "mac_protocol_checker.sv"
   `include "mac_ref_model.sv"
   `include "mac_sb.sv"
-  `include "mac_tb.sv"
   `include "mac_virtual_seqr.sv"
   `include "mac_virtual_seq.sv"
+  `include "mac_tb.sv"
 
   `include "mac_vtest_lib.sv"
 
-  `include "mac_sanity_tests.svh"
+  `include "mac_smoke_test.svh"
 
   `include "mac_neg_cfg_test.svh"
 
