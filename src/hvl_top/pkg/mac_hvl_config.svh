@@ -30,6 +30,8 @@
     virtual mac_if         mac_rx_vif;
     virtual mac_if         mac_tx_vif;
     virtual apb_if         apb_vif;
+    virtual mac_reset_if   mac_reset_vif;
+    virtual mac_reset_if   apb_reset_vif;
 
     //------------------------------------------------------------------------
     // Reset / configuration-completion state.
@@ -64,7 +66,6 @@
     extern function new(string name = "mac_tb_cfg_c");
     extern function void validate();
     extern function string convert2string();
-    extern task apb_bootstrap();
   endclass
 
   /**
@@ -90,6 +91,8 @@
     if (mac_rx_vif == null) missing = {missing, " mac_rx_vif"};
     if (mac_tx_vif == null) missing = {missing, " mac_tx_vif"};
     if (apb_vif == null)    missing = {missing, " apb_vif"};
+    if (mac_reset_vif == null) missing = {missing, " mac_reset_vif"};
+    if (apb_reset_vif == null) missing = {missing, " apb_reset_vif"};
 
     if (missing != "")
       `uvm_fatal(get_type_name(),
@@ -101,66 +104,16 @@
    * @brief Returns a one-line summary of the top-level configuration.
    */
   function string mac_tb_cfg_c::convert2string();
-    return {$sformatf("vif axi_tx=%0d axi_rx=%0d mac_rx=%0d mac_tx=%0d apb=%0d",
+    return {$sformatf("vif axi_tx=%0d axi_rx=%0d mac_rx=%0d mac_tx=%0d apb=%0d mac_rst=%0d apb_rst=%0d",
                       (axi_tx_vif != null), (axi_rx_vif != null),
                       (mac_rx_vif != null), (mac_tx_vif != null),
-                      (apb_vif != null)),
+                      (apb_vif != null), (mac_reset_vif != null),
+                      (apb_reset_vif != null)),
             $sformatf(" cfg_done=%0b rst_event=%0s apb_addr=%h apb_data=%h",
                       config_done, reset_event.name(), apb_cfg_addr,
                       apb_cfg_data),
             $sformatf(" rx_ready_always=%0b apb_delay=%0t done_delay=%0t",
                       rx_ready_always, apb_cfg_delay_ns, config_done_delay_ns)};
   endfunction
-
-  /**
-   * @brief Performs the temporary boot APB configuration transfer described
-   *        by the config-intent fields (UTL-109/110).
-   *
-   * UTL-114: the APB transaction procedure is no longer owned by mac_tb_top.
-   * This temporary package-owned transfer drives the APB virtual interface
-   * with the address/data encoded in the config object; the future APB agent
-   * replaces it. An APB write timeout or slave error is reported as a UVM
-   * error instead of a module-local $error.
-   */
-  task mac_tb_cfg_c::apb_bootstrap();
-    int guard;
-    bit err;
-
-    wait (!apb_vif.rst);
-    #(apb_cfg_delay_ns);
-
-    if (apb_bootstrap_enable) begin
-      @(posedge apb_vif.clk);
-      apb_vif.psel    <= 1'b1;
-      apb_vif.pwrite  <= 1'b1;
-      apb_vif.paddr   <= apb_cfg_addr;
-      apb_vif.pwdata  <= apb_cfg_data;
-      apb_vif.penable <= 1'b0;
-      @(posedge apb_vif.clk);
-      apb_vif.penable <= 1'b1;
-      guard = 0;
-      while (!apb_vif.pready) begin
-        @(posedge apb_vif.clk);
-        guard++;
-        if (guard > 64) begin
-          `uvm_error(get_type_name(),
-                     $sformatf("mac_tb_cfg_c: APB bootstrap write timeout at address %h",
-                               apb_cfg_addr))
-          break;
-        end
-      end
-      err = apb_vif.pslverr;
-      apb_vif.psel    <= 1'b0;
-      apb_vif.penable <= 1'b0;
-      apb_vif.pwrite  <= 1'b0;
-      if (err)
-        `uvm_error(get_type_name(),
-                   $sformatf("mac_tb_cfg_c: APB slave error at address %h",
-                             apb_cfg_addr))
-    end
-
-    #(config_done_delay_ns);
-    config_done = 1'b1;
-  endtask
 
 `endif // MAC_HVL_CONFIG_SVH
