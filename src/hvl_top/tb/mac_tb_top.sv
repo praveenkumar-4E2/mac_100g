@@ -21,6 +21,14 @@ module mac_tb_top;
   logic mac_rst;
   logic apb_rst;
 
+  // These initial values hold the synchronous DUT domains in reset before
+  // UVM run_phase starts. Subsequent assertion/release is owned exclusively
+  // by the reset-agent drivers through these interfaces.
+  mac_reset_if #(.INITIAL_RESET_VALUE(1'b1)) mac_reset_if_h (.clk(mac_clk));
+  mac_reset_if #(.INITIAL_RESET_VALUE(1'b1)) apb_reset_if_h (.clk(apb_clk));
+  assign mac_rst = mac_reset_if_h.rst;
+  assign apb_rst = apb_reset_if_h.rst;
+
   // Bit-time ticks for the MAC TX/RX paths (1-cycle pulse every 4 mac_clk).
   logic tx_tick;
   logic rx_tick;
@@ -53,13 +61,27 @@ module mac_tb_top;
     .rst (mac_rst)
   );
 
-  // APB configuration bus: the package-owned bootstrap transfer
-  // (mac_tb_cfg_c::apb_bootstrap) drives this virtual interface instead
-  // of a module-local transaction task (UTL-114).
+  // APB request signals are owned exclusively by the active APB UVM agent.
   apb_if apb_bus (
     .clk (apb_clk),
     .rst (apb_rst)
   );
+
+  // An interface variable cannot be connected directly to a DUT input that
+  // is forwarded internally by a continuous assignment in Questa.  These
+  // nets form the legal pin-level boundary: the APB agent owns apb_bus and
+  // the DUT consumes only resolved scalar nets.
+  wire        apb_psel    = apb_bus.psel;
+  wire        apb_penable = apb_bus.penable;
+  wire        apb_pwrite  = apb_bus.pwrite;
+  wire [15:0] apb_paddr   = apb_bus.paddr;
+  wire [31:0] apb_pwdata  = apb_bus.pwdata;
+  wire [31:0] apb_prdata;
+  wire        apb_pready;
+  wire        apb_pslverr;
+  assign apb_bus.prdata  = apb_prdata;
+  assign apb_bus.pready  = apb_pready;
+  assign apb_bus.pslverr = apb_pslverr;
 
   //============================================================================
   // DUT scalar nets
@@ -124,14 +146,14 @@ module mac_tb_top;
     .mac_rst        (mac_rst),
     .apb_clk        (apb_clk),
     .apb_rst        (apb_rst),
-    .psel           (apb_bus.psel),
-    .penable        (apb_bus.penable),
-    .pwrite         (apb_bus.pwrite),
-    .paddr          (apb_bus.paddr),
-    .pwdata         (apb_bus.pwdata),
-    .prdata         (apb_bus.prdata),
-    .pready         (apb_bus.pready),
-    .pslverr        (apb_bus.pslverr),
+    .psel           (apb_psel),
+    .penable        (apb_penable),
+    .pwrite         (apb_pwrite),
+    .paddr          (apb_paddr),
+    .pwdata         (apb_pwdata),
+    .prdata         (apb_prdata),
+    .pready         (apb_pready),
+    .pslverr        (apb_pslverr),
     .tx_start       (tx_start),
     .tx_dest_addr   (tx_dest_addr),
     .tx_src_addr    (tx_src_addr),
@@ -301,17 +323,6 @@ module mac_tb_top;
   end
 
   //============================================================================
-  // Reset: asserted at time 0, released after 10 mac_clk cycles
-  //============================================================================
-  initial begin
-    mac_rst = 1'b1;
-    apb_rst = 1'b1;
-    repeat (10) @(posedge mac_clk);
-    mac_rst = 1'b0;
-    apb_rst = 1'b0;
-  end
-
-  //============================================================================
   // Bit-time tick generation: 1-cycle pulse every 4 mac_clk cycles
   //============================================================================
   always @(posedge mac_clk or posedge mac_rst) begin
@@ -338,21 +349,11 @@ module mac_tb_top;
     tb_cfg.mac_rx_vif   = mac_rx_if;
     tb_cfg.mac_tx_vif   = mac_tx_out_if;
     tb_cfg.apb_vif      = apb_bus;
+    tb_cfg.mac_reset_vif = mac_reset_if_h;
+    tb_cfg.apb_reset_vif = apb_reset_if_h;
     tb_cfg.validate();
     uvm_config_db#(mac_tb_cfg_c)::set(null, "*", "mac_tb_cfg", tb_cfg);
-    run_test("mac_base_test_c");
-  end
-
-  //============================================================================
-  // Bootstrap: the initial APB configuration intent lives in mac_tb_cfg_c
-  // (UTL-109/110); the APB transaction procedure moved out of this module
-  // into mac_tb_cfg_c::apb_bootstrap (UTL-114) and publishes configuration
-  // completion via config_done (consumed by mac_base_test_c::wait_for_rst_done).
-  // The future APB agent replaces that temporary package-owned transfer.
-  //============================================================================
-  initial begin
-    wait (tb_cfg != null);
-    tb_cfg.apb_bootstrap();
+    run_test();
   end
 
 endmodule
