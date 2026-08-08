@@ -134,7 +134,7 @@ module rx_pipeline #(
   logic                            length_alignment_error;
   logic                            length_oversize_error;
   logic                            length_undersize_error;
-  logic [15:0]                     length_payload_octets;
+  logic [11:0]                     length_payload_octets;
   logic                            emit_ready;
 
   // ASSERT: Data stable when in_valid asserted (in_data changes only on handshake)
