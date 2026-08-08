@@ -27,15 +27,12 @@ class axi_monitor_c extends uvm_monitor;
   // handle; replaces the former class-static counter on the config.
   int mon_rcvd_xtn_cnt = 0;
 
-  // Instance-local observed-frame queue (sanity tests): every published item
-  // handle is retained so a directed test can compare byte-exact contents in
-  // the order the frames were observed.
-  axi_item_c mon_frame_q[$];
 
   extern function new(string name = "axi_monitor_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
   extern task run_phase(uvm_phase phase);
-  extern function void collect_item(byte unsigned frame_q[$], bit [7:0] tuser);
+  extern function void collect_item(byte unsigned frame_q[$], bit [7:0] tuser,
+                                    int unsigned eop_byte_count);
 endclass
 
 /**
@@ -101,7 +98,12 @@ task axi_monitor_c::run_phase(uvm_phase phase);
                     vif.mon_cb.tkeep, $bits(vif.mon_cb.tkeep)),
                 $bits(vif.mon_cb.tkeep)));
       if (vif.mon_cb.tlast) begin
-        collect_item(frame_q, vif.mon_cb.tuser);
+        // UTL-124: the codec EOP byte count is the valid-lane count of the
+        // final beat (tkeep), not the whole-frame byte count — the two differ
+        // on every multi-beat frame.
+        collect_item(frame_q, vif.mon_cb.tuser,
+                     mac_hvl_utils_c::valid_bytes_from_keep(
+                         vif.mon_cb.tkeep, $bits(vif.mon_cb.tkeep)));
         frame_q.delete();
       end
     end
@@ -119,12 +121,14 @@ endtask
  *
  * @param frame_q Frame bytes in wire order.
  * @param tuser   Sideband flags of the final beat.
+ * @param eop_byte_count Valid-lane count of the final beat (tkeep).
  */
-function void axi_monitor_c::collect_item(byte unsigned frame_q[$], bit [7:0] tuser);
+function void axi_monitor_c::collect_item(byte unsigned frame_q[$], bit [7:0] tuser,
+                                          int unsigned eop_byte_count);
   mac_frame_c canon;
   int nbytes = frame_q.size();
 
-  if (mac_frame_codec_c::axi_to_frame(frame_q, tuser, nbytes,
+  if (mac_frame_codec_c::axi_to_frame(frame_q, tuser, eop_byte_count,
                                       MAC_FRAME_DIR_AXI_TX, RS_ETH_LEN_BOUND,
                                       canon) != 0) begin
     `uvm_error(get_type_name(),
@@ -139,7 +143,7 @@ function void axi_monitor_c::collect_item(byte unsigned frame_q[$], bit [7:0] tu
   axi_item_h.ether_type     = canon.ether_type;
   axi_item_h.payload        = new[canon.payload.size()];
   foreach (canon.payload[i])
-    axi_item_h.payload[i] = canon.payload[i];
+    axi_item_h.payload[i]   = canon.payload[i];
   axi_item_h.insert_fcs     = canon.fcs_present;
   axi_item_h.fcs            = canon.fcs;
   // AXI status comes from the tuser error bit (mapped by the codec onto the
@@ -149,7 +153,6 @@ function void axi_monitor_c::collect_item(byte unsigned frame_q[$], bit [7:0] tu
   axi_item_h.alignment_error = 1'b0;
 
   mon_rcvd_xtn_cnt++;
-  mon_frame_q.push_back(axi_item_h);
   if (cfg_h.enable_logger) begin
     `uvm_info(get_type_name(),
               $sformatf("mon observed frame: %s nbytes=%0d",
