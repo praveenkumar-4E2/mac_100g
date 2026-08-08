@@ -33,7 +33,7 @@ VSIM_OPTS = -voptargs=+acc
 ## Override per run, e.g.:
 ##   make run TEST=mac_smoke_test VERBOSITY=UVM_HIGH SEED=12345
 ifndef TEST
-override TEST = mac_base_test_c
+override TEST = mac_tx_sanity_test_c
 endif
 
 ifndef VERBOSITY
@@ -98,16 +98,16 @@ help:
 	@echo "  make run";
 	@echo "";
 	@echo "I want to run a SPECIFIC test:";
-	@echo "  make run TEST=mac_smoke_test";
-	@echo "  make run TEST=mac_smoke_test VERBOSITY=UVM_HIGH SEED=12345";
+	@echo "  make run TEST=mac_tx_sanity_test_c";
+	@echo "  make run TEST=mac_rx_sanity_test_c VERBOSITY=UVM_HIGH SEED=12345";
 	@echo "  (each test's logs/waveform go into their own run_<TEST>/ folder)";
 	@echo "";
 	@echo "I want to run a test with coverage collection:";
-	@echo "  make run_cov TEST=mac_smoke_test";
-	@echo "  make cover_report TEST=mac_smoke_test   # HTML report afterwards";
+	@echo "  make run_cov TEST=mac_tx_sanity_test_c";
+	@echo "  make cover_report TEST=mac_tx_sanity_test_c   # HTML report afterwards";
 	@echo "";
 	@echo "I want to open the Questa GUI to debug:";
-	@echo "  make gui TEST=mac_smoke_test";
+	@echo "  make gui TEST=mac_tx_sanity_test_c";
 	@echo "";
 	@echo "I want to run a whole list of tests (regression):";
 	@echo "  make regression TESTLIST=regression.list";

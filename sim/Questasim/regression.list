@@ -1,0 +1,7 @@
+# Regression test list — one test name per line ('#' lines ignored).
+# Run with:  make regression TESTLIST=regression.list
+mac_tx_sanity_test_c
+mac_rx_sanity_test_c
+tx_base_test_c
+rx_base_test_c
+mac_hvl_utils_test_c

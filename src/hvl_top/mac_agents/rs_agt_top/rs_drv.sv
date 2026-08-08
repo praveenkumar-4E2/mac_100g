@@ -37,6 +37,10 @@ class rs_driver_c extends uvm_driver #(frame_xtn_c);
   virtual mac_if      vif;
   rs_agent_cfg_c      cfg_h;
 
+  // Instance-local frame counter (UTL-090), read by tests via the driver
+  // handle; replaces the former class-static counter on the config.
+  int drv_data_sent_cnt = 0;
+
   // Per-frame driver log sink (default sim/rs_drv.log, override
   // with +RS_DRV_LOG=path). All driver uvm_info messages are
   // echoed to this file via the component report handler.
@@ -86,29 +90,29 @@ function void rs_driver_c::build_phase(uvm_phase phase);
   end
   vif = cfg_h.vif;
 
-  // Route the driver report handler to a per-frame log file so
-  // every transmission lands in sim/rs_drv.log even when the
-  // console logger is disabled. Falls back to the working
-  // directory if the requested path cannot be created.
+  // UTL-107: driver logging is disabled by default. A per-frame log file is
+  // only opened and the report handler is only re-routed when a run-configured
+  // destination is supplied via +RS_DRV_LOG=<path>. Without it, the driver
+  // reports at its normal verbosity to the UVM log only.
   if ($value$plusargs("RS_DRV_LOG=%s", drv_log_file)) begin
-  end
-  drv_log_fd = $fopen(drv_log_file, "w");
-  if (drv_log_fd == 0) begin
-    `uvm_info(get_type_name(),
-              $sformatf("cannot open driver log %0s, falling back to cwd rs_drv.log",
-                        drv_log_file), UVM_LOW)
-    drv_log_file = "rs_drv.log";
     drv_log_fd = $fopen(drv_log_file, "w");
-  end
-  if (drv_log_fd == 0) begin
-    `uvm_warning(get_type_name(),
-                 "cannot open any rs driver log file; driver logging disabled")
-  end else begin
-    set_report_default_file(drv_log_fd);
-    set_report_severity_action(UVM_INFO, UVM_DISPLAY | UVM_LOG);
-    set_report_verbosity_level(UVM_HIGH);
-    `uvm_info(get_type_name(),
-              $sformatf("driver log file %0s open", drv_log_file), UVM_LOW)
+    if (drv_log_fd == 0) begin
+      `uvm_info(get_type_name(),
+                $sformatf("cannot open driver log %0s, falling back to cwd rs_drv.log",
+                          drv_log_file), UVM_LOW)
+      drv_log_file = "rs_drv.log";
+      drv_log_fd = $fopen(drv_log_file, "w");
+    end
+    if (drv_log_fd == 0) begin
+      `uvm_warning(get_type_name(),
+                   "cannot open any rs driver log file; driver logging disabled")
+    end else begin
+      set_report_default_file(drv_log_fd);
+      set_report_severity_action(UVM_INFO, UVM_DISPLAY | UVM_LOG);
+      set_report_verbosity_level(UVM_HIGH);
+      `uvm_info(get_type_name(),
+                $sformatf("driver log file %0s open", drv_log_file), UVM_LOW)
+    end
   end
 endfunction
 
@@ -236,7 +240,7 @@ task rs_driver_c::drive_frame(frame_xtn_c item);
     repeat (ipg_cycles) @(posedge vif.clk);
   end
 
-  cfg_h.drv_data_sent_cnt++;
+  drv_data_sent_cnt++;
   if (cfg_h.enable_logger) begin
     `uvm_info(get_type_name(),
               $sformatf("drv sent frame: %s beats=%0d bytes=%0d",

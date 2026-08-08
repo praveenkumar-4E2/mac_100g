@@ -44,33 +44,33 @@ package reg_map_pkg;
   localparam logic [15:0] REG_GROUP_STRIDE        = 16'h0008;
 
   // REG_GLOBAL_CONTROL bit positions (IEEE 802.3 Clause 3.2.3.1, 4A.2.4.1.1)
-  localparam bit CTRL_RX_BIT            = 0;
-  localparam bit CTRL_TX_BIT            = 2;
-  localparam bit CTRL_CARRIER_BIT       = 3;
-  localparam bit CTRL_PAUSE_BIT         = 4;
-  localparam bit CTRL_COLLISION_BIT     = 5;
-  localparam bit CTRL_OVERSIZE_BIT      = 6;
-  localparam bit CTRL_PROMISCUOUS_BIT   = 7;
+  localparam int unsigned CTRL_RX_BIT            = 0;
+  localparam int unsigned CTRL_TX_BIT            = 2;
+  localparam int unsigned CTRL_CARRIER_BIT       = 3;
+  localparam int unsigned CTRL_PAUSE_BIT         = 4;
+  localparam int unsigned CTRL_COLLISION_BIT     = 5;
+  localparam int unsigned CTRL_OVERSIZE_BIT      = 6;
+  localparam int unsigned CTRL_PROMISCUOUS_BIT   = 7;
 
   // REG_INTERRUPT_STATUS bit positions
-  localparam bit INT_RX_INVALID_BIT    = 0;
-  localparam bit INT_RX_CRC_BIT        = 1;
-  localparam bit INT_RX_OVERSIZE_BIT   = 2;
-  localparam bit INT_RX_UNSUPPORTED_BIT = 3;
-  localparam bit INT_PAUSE_ACTIVE_BIT  = 4;
-  localparam bit INT_PAUSE_EXPIRED_BIT = 5;
-  localparam bit INT_TX_ERROR_BIT      = 6;
+  localparam int unsigned INT_RX_INVALID_BIT    = 0;
+  localparam int unsigned INT_RX_CRC_BIT        = 1;
+  localparam int unsigned INT_RX_OVERSIZE_BIT   = 2;
+  localparam int unsigned INT_RX_UNSUPPORTED_BIT = 3;
+  localparam int unsigned INT_PAUSE_ACTIVE_BIT  = 4;
+  localparam int unsigned INT_PAUSE_EXPIRED_BIT = 5;
+  localparam int unsigned INT_TX_ERROR_BIT      = 6;
 
   // REG_PAUSE_TX_CONFIG bit positions (IEEE 802.3 Annex 31B.2)
-  localparam bit PAUSE_TX_ENABLE_BIT   = 0;
-  localparam bit PAUSE_TX_SOFT_REQ_BIT = 1;
+  localparam int unsigned PAUSE_TX_ENABLE_BIT   = 0;
+  localparam int unsigned PAUSE_TX_SOFT_REQ_BIT = 1;
   // Bits [15:0]: pause_quanta — PAUSE quanta value (units of 512 bit-times)
 
   // REG_RX_STATUS bit positions (IEEE 802.3 Clause 3.2.3.1)
-  localparam bit RX_PROMISCUOUS_ACTIVE_BIT = 0;
+  localparam int unsigned RX_PROMISCUOUS_ACTIVE_BIT = 0;
 
   // REG_MAC_SPEED_CONFIG bit positions (IEEE 802.3 Clause 4, Table 4-2)
-  localparam bit SPEED_OVERRIDE_BIT = 3;
+  localparam int unsigned SPEED_OVERRIDE_BIT = 3;
   // Bits [2:0]: mac_speed — 3'b000=10G, 3'b001=25G, 3'b010=40G, 3'b011=50G, 3'b100=100G
   //             3'b101..3'b111 reserved (programmed value rejected: falls back to 100G)
   // Bit 3: speed_override - 1 = apply programmed mac_speed to active logic

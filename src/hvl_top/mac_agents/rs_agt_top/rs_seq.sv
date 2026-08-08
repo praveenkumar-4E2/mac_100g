@@ -44,7 +44,9 @@ endfunction
  * payload, and error injection vary per frame.
  */
 task rs_sequence_c::body();
-  if (!uvm_config_db#(rs_agent_cfg_c)::get(null, get_full_name(),
+  // UTL-099: look up the config from the starting sequencer's hierarchy
+  // rather than a null-context wildcard lookup.
+  if (!uvm_config_db#(rs_agent_cfg_c)::get(m_sequencer, "",
                                             "rs_agent_cfg", cfg_h)) begin
     `uvm_fatal(get_type_name(),
                "uvm_config_db#(rs_agent_cfg_c)::get cannot find resource rs agt config")

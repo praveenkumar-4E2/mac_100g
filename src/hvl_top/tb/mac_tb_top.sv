@@ -8,6 +8,11 @@ module mac_tb_top;
   import uvm_pkg::*;
   import mac_test_pkg::*;
 
+  // Typed top-level configuration published to the UVM config database
+  // before run_test; the bootstrap initial block also drives its
+  // config-intent fields and sets config_done once configuration completes.
+  mac_tb_cfg_c tb_cfg;
+
   //============================================================================
   // Clocks & reset
   //============================================================================
@@ -46,6 +51,14 @@ module mac_tb_top;
   mac_if mac_tx_out_if (
     .clk (mac_clk),
     .rst (mac_rst)
+  );
+
+  // APB configuration bus: the package-owned bootstrap transfer
+  // (mac_tb_cfg_c::apb_bootstrap) drives this virtual interface instead
+  // of a module-local transaction task (UTL-114).
+  apb_if apb_bus (
+    .clk (apb_clk),
+    .rst (apb_rst)
   );
 
   //============================================================================
@@ -103,16 +116,6 @@ module mac_tb_top;
   logic [31:0] rx_unsupported_control_count;
   logic [6:0]  interrupt_status;
 
-  // APB
-  logic        psel;
-  logic        penable;
-  logic        pwrite;
-  logic [15:0] paddr;
-  logic [31:0] pwdata;
-  logic [31:0] prdata;
-  logic        pready;
-  logic        pslverr;
-
   //============================================================================
   // DUT instantiation
   //============================================================================
@@ -121,14 +124,14 @@ module mac_tb_top;
     .mac_rst        (mac_rst),
     .apb_clk        (apb_clk),
     .apb_rst        (apb_rst),
-    .psel           (psel),
-    .penable        (penable),
-    .pwrite         (pwrite),
-    .paddr          (paddr),
-    .pwdata         (pwdata),
-    .prdata         (prdata),
-    .pready         (pready),
-    .pslverr        (pslverr),
+    .psel           (apb_bus.psel),
+    .penable        (apb_bus.penable),
+    .pwrite         (apb_bus.pwrite),
+    .paddr          (apb_bus.paddr),
+    .pwdata         (apb_bus.pwdata),
+    .prdata         (apb_bus.prdata),
+    .pready         (apb_bus.pready),
+    .pslverr        (apb_bus.pslverr),
     .tx_start       (tx_start),
     .tx_dest_addr   (tx_dest_addr),
     .tx_src_addr    (tx_src_addr),
@@ -219,8 +222,23 @@ module mac_tb_top;
   // readiness permit. No testbench signal may generate an admission pulse.
   assign tx_start = 1'b0;
 
-  // RX-side AXI slave: always accept frames from the DUT.
-  assign axi_rx_if.tready = 1'b1;
+  //============================================================================
+  // RX-ready controller (UTL-112/113): named baseline ready policy driven
+  // from the typed top-level configuration. The TB is the downstream slave
+  // of the DUT's m_axis_rx, so it owns tready. Before tb_cfg is built
+  // (reset/bootstrap) the DUT is kept back-pressure-free; once the
+  // configuration exists, ready follows tb_cfg.rx_ready_always. The config
+  // is immutable after build, so the policy is sampled once rather than read
+  // every cycle — an always_comb over tb_cfg.rx_ready_always would not react
+  // because Questa ignores class-handle dynamic sensitivity (vlog-13365).
+  // This named process replaces the permanent direct assign and can later be
+  // swapped for a policy-driven controller.
+  //============================================================================
+  initial begin : axi_rx_ready_controller
+    axi_rx_if.tready = 1'b1;
+    wait (tb_cfg != null);
+    axi_rx_if.tready = tb_cfg.rx_ready_always;
+  end
 
   // Native MAC <-> RS interface: the RS agent drives the line side
   // (mac_rx_if) and the DUT's scalar RX input ports are connected
@@ -309,54 +327,32 @@ module mac_tb_top;
   end
 
   //============================================================================
-  // APB configuration: enable RX/TX and promiscuous mode
-  // (REG_GLOBAL_CONTROL = 0x0004, bits CTRL_RX|CTRL_TX|CTRL_PROMISCUOUS)
+  // UVM: build and publish the typed top-level configuration (all virtual
+  // interfaces + reset/configuration-completion state + config intent),
+  // then run the test at time 0.
   //============================================================================
-  task automatic apb_write(input logic [15:0] addr, input logic [31:0] wdata);
-    int guard;
-    bit err;
-    @(posedge apb_clk);
-    psel    <= 1'b1;
-    pwrite  <= 1'b1;
-    paddr   <= addr;
-    pwdata  <= wdata;
-    penable <= 1'b0;
-    @(posedge apb_clk);
-    penable <= 1'b1;
-    guard = 0;
-    while (!pready) begin
-      @(posedge apb_clk);
-      guard++;
-      if (guard > 64) begin
-        $error("%m: APB write timeout at address %h", addr);
-        break;
-      end
-    end
-    err = pslverr;
-    psel    <= 1'b0;
-    penable <= 1'b0;
-    pwrite  <= 1'b0;
-    if (err)
-      $error("%m: APB slave error at address %h", addr);
-  endtask
-
   initial begin
-    wait (!mac_rst);
-    #100ns;
-    apb_write(16'h0004, 32'h0000_0085);  // RX_EN | TX_EN | PROMISCUOUS
-    #50ns;
-    uvm_config_db#(bit)::set(null, "*", "rst_done", 1'b1);
+    tb_cfg              = mac_tb_cfg_c::type_id::create("tb_cfg");
+    tb_cfg.axi_tx_vif   = axi_tx_if;
+    tb_cfg.axi_rx_vif   = axi_rx_if;
+    tb_cfg.mac_rx_vif   = mac_rx_if;
+    tb_cfg.mac_tx_vif   = mac_tx_out_if;
+    tb_cfg.apb_vif      = apb_bus;
+    tb_cfg.validate();
+    uvm_config_db#(mac_tb_cfg_c)::set(null, "*", "mac_tb_cfg", tb_cfg);
+    run_test("mac_base_test_c");
   end
 
   //============================================================================
-  // UVM: publish the virtual interfaces, then run the test
+  // Bootstrap: the initial APB configuration intent lives in mac_tb_cfg_c
+  // (UTL-109/110); the APB transaction procedure moved out of this module
+  // into mac_tb_cfg_c::apb_bootstrap (UTL-114) and publishes configuration
+  // completion via config_done (consumed by mac_base_test_c::wait_for_rst_done).
+  // The future APB agent replaces that temporary package-owned transfer.
   //============================================================================
   initial begin
-    uvm_config_db#(virtual axi4_stream_if)::set(null, "*", "axi_tx_vif", axi_tx_if);
-    uvm_config_db#(virtual axi4_stream_if)::set(null, "*", "axi_rx_vif", axi_rx_if);
-    uvm_config_db#(virtual mac_if)::set(null, "*", "mac_rx_vif", mac_rx_if);
-    uvm_config_db#(virtual mac_if)::set(null, "*", "mac_tx_vif", mac_tx_out_if);
-    run_test("mac_base_test_c");
+    wait (tb_cfg != null);
+    tb_cfg.apb_bootstrap();
   end
 
 endmodule

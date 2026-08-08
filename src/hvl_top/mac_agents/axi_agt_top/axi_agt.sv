@@ -48,6 +48,7 @@ function void axi_agent_c::build_phase(uvm_phase phase);
     `uvm_fatal("CONFIG_ERROR",
                "uvm_config_db#(axi_agent_cfg_c)::get cannot find resource axi agt config");
   end
+  cfg_h.validate();
   if (cfg_h.is_active == UVM_ACTIVE) begin
     sequencer_h = axi_sequencer_c::type_id::create("sequencer_h", this);
     driver_h = axi_driver_c::type_id::create("driver_h", this);

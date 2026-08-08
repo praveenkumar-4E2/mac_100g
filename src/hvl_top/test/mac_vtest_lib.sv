@@ -3,6 +3,7 @@ class mac_base_test_c extends uvm_test;
 
   mac_env_c            env_h;
   mac_env_cfg_c    env_cfg_h;
+  mac_tb_cfg_c        tb_cfg_h;
   rs_agent_cfg_c rs_active_agent_cfgs [];
   rs_agent_cfg_c rs_passive_agent_cfgs[];
   axi_agent_cfg_c axi_active_agent_cfgs [];
@@ -19,12 +20,11 @@ class mac_base_test_c extends uvm_test;
   // Number of frames driven on the RS RX interface by the rx base test.
   int                 num_rs_frames             = 10;
 
-  // Virtual interfaces published by mac_tb_top.
+  // Virtual interfaces published by mac_tb_top via mac_tb_cfg_c.
   virtual axi4_stream_if axi_tx_vif;
   virtual axi4_stream_if axi_rx_vif;
   virtual mac_if         mac_rx_vif;
   virtual mac_if         mac_tx_vif;
-  bit                      rst_done;
 
   extern function new(string name = "mac_base_test_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
@@ -32,9 +32,8 @@ class mac_base_test_c extends uvm_test;
   extern function void report_phase(uvm_phase phase);
   extern task run_phase(uvm_phase phase);
   extern virtual task run_stimulus(uvm_phase phase);
-  extern function void set_env_config();
+  extern virtual function void set_env_config();
   extern task wait_for_rst_done();
-  extern task reset_static_counters();
 endclass
 
 function mac_base_test_c::new(string name = "mac_base_test_c", uvm_component parent = null);
@@ -45,29 +44,22 @@ function void mac_base_test_c::build_phase(uvm_phase phase);
   int p;
   super.build_phase(phase);
 
-  if (!uvm_config_db#(virtual axi4_stream_if)::get(null, "*", "axi_tx_vif", axi_tx_vif)) begin
+  // UTL-080: the top-level configuration is retrieved by exact path; all
+  // virtual interfaces and reset/config state now come from mac_tb_cfg_c.
+  if (!uvm_config_db#(mac_tb_cfg_c)::get(this, "", "mac_tb_cfg", tb_cfg_h)) begin
     `uvm_fatal("CONFIG_ERROR",
-               "uvm_config_db#(virtual axi4_stream_if)::get cannot find axi_tx_vif (set by mac_tb_top)")
+               "uvm_config_db#(mac_tb_cfg_c)::get cannot find mac_tb_cfg (set by mac_tb_top)")
   end
-  if (!uvm_config_db#(virtual axi4_stream_if)::get(null, "*", "axi_rx_vif", axi_rx_vif)) begin
-    `uvm_fatal("CONFIG_ERROR",
-               "uvm_config_db#(virtual axi4_stream_if)::get cannot find axi_rx_vif (set by mac_tb_top)")
-  end
+  tb_cfg_h.validate();
+  axi_tx_vif = tb_cfg_h.axi_tx_vif;
+  axi_rx_vif = tb_cfg_h.axi_rx_vif;
+  mac_rx_vif = tb_cfg_h.mac_rx_vif;
+  mac_tx_vif = tb_cfg_h.mac_tx_vif;
 
   if ($value$plusargs("NUM_AXI_ACTIVE=%0d", p)) num_axi_active_agents = p;
   if ($value$plusargs("NUM_AXI_PASSIVE=%0d", p)) num_axi_passive_agents = p;
   if ($value$plusargs("NUM_FRAMES=%0d", p)) num_tx_frames = p;
   if ($value$plusargs("NUM_RS_FRAMES=%0d", p)) num_rs_frames = p;
-
-  if ((num_rs_active_agents || num_rs_passive_agents) &&
-      !uvm_config_db#(virtual mac_if)::get(null, "*", "mac_rx_vif", mac_rx_vif)) begin
-    `uvm_fatal("CONFIG_ERROR",
-               "uvm_config_db#(virtual mac_if)::get cannot find mac_rx_vif (set by mac_tb_top)")
-  end
-  if (!uvm_config_db#(virtual mac_if)::get(null, "*", "mac_tx_vif", mac_tx_vif)) begin
-    `uvm_fatal("CONFIG_ERROR",
-               "uvm_config_db#(virtual mac_if)::get cannot find mac_tx_vif (set by mac_tb_top)")
-  end
 
   env_cfg_h                        = mac_env_cfg_c::type_id::create("env_cfg_h", this);
   env_cfg_h.axi_active_agent_cfgs   = new[num_axi_active_agents];
@@ -87,7 +79,11 @@ function void mac_base_test_c::build_phase(uvm_phase phase);
     foreach (rs_active_agent_cfgs[i]) rs_active_agent_cfgs[i].enable_logger = p;
     foreach (rs_passive_agent_cfgs[i]) rs_passive_agent_cfgs[i].enable_logger = p;
   end
-  uvm_config_db#(mac_env_cfg_c)::set(null, "*", "mac_env_cfg", env_cfg_h);
+  // UTL-096: publish at the exact environment subtree instead of the
+  // global wildcard scope. UVM-1.1d config lookup is an anchored match on
+  // the full hierarchical name, so the scope glob must cover the env and
+  // every descendant component (agents, scoreboard, reference model, ...).
+  uvm_config_db#(mac_env_cfg_c)::set(this, "env_h*", "mac_env_cfg", env_cfg_h);
   env_h = mac_env_c::type_id::create("env_h", this);
 
 endfunction
@@ -110,7 +106,6 @@ endfunction
 task mac_base_test_c::run_phase(uvm_phase phase);
   phase.raise_objection(this);
 
-  reset_static_counters();
   wait_for_rst_done();
   #100ns;
 
@@ -139,36 +134,33 @@ endtask
 function void mac_base_test_c::report_phase(uvm_phase phase);
   super.report_phase(phase);
 
-  `uvm_info("TEST", $sformatf("AXI TX: driven=%0d captured=%0d",
-                              axi_agent_cfg_c::drv_data_sent_cnt,
-                              axi_agent_cfg_c::mon_rcvd_xtn_cnt), UVM_NONE)
-  `uvm_info("TEST", $sformatf("RS RX : driven=%0d captured=%0d",
-                              rs_agent_cfg_c::drv_data_sent_cnt,
-                              rs_agent_cfg_c::mon_rcvd_xtn_cnt), UVM_NONE)
+  // UTL-092: counts come from the instantiated agent handles, not from
+  // class-static state.
+  if (env_h.axi_agent_top_h.active_agents.size() > 0)
+    `uvm_info("TEST", $sformatf("AXI TX: driven=%0d captured=%0d",
+              env_h.axi_agent_top_h.active_agents[0].driver_h.drv_data_sent_cnt,
+              env_h.axi_agent_top_h.active_agents[0].monitor_h.mon_rcvd_xtn_cnt),
+              UVM_NONE)
+  if (env_h.rs_agent_top_h.active_agents.size() > 0)
+    `uvm_info("TEST", $sformatf("RS RX : driven=%0d captured=%0d",
+              env_h.rs_agent_top_h.active_agents[0].driver_h.drv_data_sent_cnt,
+              env_h.rs_agent_top_h.active_agents[0].monitor_h.mon_rcvd_xtn_cnt),
+              UVM_NONE)
 endfunction
 
 /**
  * @brief Waits until the testbench has released reset and finished
- *        its initial configuration (published as rst_done via the
- *        UVM configuration database).
+ *        its initial configuration (published in mac_tb_cfg_c.config_done).
  */
 task mac_base_test_c::wait_for_rst_done();
-  forever begin
-    if (uvm_config_db#(bit)::get(null, "*", "rst_done", rst_done) && rst_done)
-      break;
-    #1ns;
-  end
-endtask
-
-/**
- * @brief Clears the agent-level frame counters before a sequence run
- *        so pass/fail checks only count frames from this test.
- */
-task mac_base_test_c::reset_static_counters();
-  rs_agent_cfg_c::drv_data_sent_cnt  = 0;
-  rs_agent_cfg_c::mon_rcvd_xtn_cnt   = 0;
-  axi_agent_cfg_c::drv_data_sent_cnt = 0;
-  axi_agent_cfg_c::mon_rcvd_xtn_cnt  = 0;
+  bit timed_out;
+  // UTL-102: bounded wait replaces the open-ended `forever #1ns` polling.
+  mac_wait_utils_c::wait_for_config_done(tb_cfg_h,
+                                         MAC_CONFIG_DONE_TIMEOUT_NS, timed_out);
+  if (timed_out)
+    `uvm_fatal(get_type_name(),
+               $sformatf("timed out waiting for configuration completion after %0t ns",
+                         MAC_CONFIG_DONE_TIMEOUT_NS))
 endtask
 
 
@@ -197,39 +189,43 @@ task tx_base_test_c::run_stimulus(uvm_phase phase);
   axi_sequence_c seq_h;
   int            sent_cnt;
   int            wire_cnt;
-  bit            completed;
+  bit            timed_out;
 
   seq_h = axi_sequence_c::type_id::create("seq_h");
   seq_h.start(env_h.axi_agent_top_h.active_agents[0].sequencer_h);
 
-  // W3: monitor DUT TX completion instead of a fixed settle delay. The AXI
-  // agent counts each accepted frame; the passive RS agent on mac_tx_out_if
-  // counts frames on the wire. Wait until all frames hit the wire, bounded
-  // by a timeout so a stalled DUT fails the test instead of hanging it.
-  completed = 1'b0;
-  repeat (5000) begin  // 5000 * 100ns = 500us bounded timeout
-    if (rs_agent_cfg_c::mon_rcvd_xtn_cnt >= num_tx_frames &&
-        axi_agent_cfg_c::mon_rcvd_xtn_cnt >= num_tx_frames) begin
-      completed = 1'b1;
-      break;
-    end
-    #100ns;
-  end
-  if (!completed)
-    `uvm_error("TEST", $sformatf("TX TIMEOUT: only %0d of %0d frames reached the wire",
-                                 rs_agent_cfg_c::mon_rcvd_xtn_cnt, num_tx_frames))
+  // W3/UTL-105: monitor DUT TX completion instead of a fixed settle delay.
+  // The passive RS agent on mac_tx_out_if counts frames on the wire; wait
+  // until all frames hit the wire with the clock-based bounded completion
+  // API (sampled on the wire interface clock) instead of time-step polling.
+  // A stalled DUT fails the test instead of hanging it. The wire frame is
+  // the end-to-end signal: the AXI TX monitor necessarily counted every
+  // frame before it reached the wire, and the final count check below still
+  // verifies all three counters.
+  mac_wait_utils_c::wait_for_count_at_least(
+      num_tx_frames,
+      env_h.rs_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt,
+      env_h.rs_agent_top_h.passive_agents[0].monitor_h.vif,
+      MAC_COMPLETION_TIMEOUT_NS, timed_out);
+  if (timed_out)
+    `uvm_error("TEST", $sformatf("TX COMPLETION TIMEOUT: only %0d of %0d frames reached the wire",
+                                 env_h.rs_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt,
+                                 num_tx_frames))
 
-  sent_cnt = axi_agent_cfg_c::drv_data_sent_cnt;
-  wire_cnt = rs_agent_cfg_c::mon_rcvd_xtn_cnt;
+  sent_cnt = env_h.axi_agent_top_h.active_agents[0].driver_h.drv_data_sent_cnt;
+  wire_cnt = env_h.rs_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt;
   if (sent_cnt == num_tx_frames &&
-      axi_agent_cfg_c::mon_rcvd_xtn_cnt == num_tx_frames &&
+      env_h.axi_agent_top_h.active_agents[0].monitor_h.mon_rcvd_xtn_cnt == num_tx_frames &&
       wire_cnt == num_tx_frames)
     `uvm_info("TEST", $sformatf("TX BASE PASSED: %0d frames driven, %0d captured, %0d on wire",
-                                sent_cnt, axi_agent_cfg_c::mon_rcvd_xtn_cnt, wire_cnt), UVM_NONE)
+                                sent_cnt,
+                                env_h.axi_agent_top_h.active_agents[0].monitor_h.mon_rcvd_xtn_cnt,
+                                wire_cnt), UVM_NONE)
   else
     `uvm_error("TEST", $sformatf("TX BASE FAILED: driven %0d of %0d frames, captured %0d, wire %0d",
                                  sent_cnt, num_tx_frames,
-                                 axi_agent_cfg_c::mon_rcvd_xtn_cnt, wire_cnt))
+                                 env_h.axi_agent_top_h.active_agents[0].monitor_h.mon_rcvd_xtn_cnt,
+                                 wire_cnt))
 endtask
 
 /**
@@ -272,16 +268,28 @@ task rx_base_test_c::run_stimulus(uvm_phase phase);
   rs_sequence_c seq_h;
   int           drv_cnt;
   int           axi_mon_cnt;
+  bit           timed_out;
 
   seq_h = rs_sequence_c::type_id::create("seq_h");
   seq_h.start(env_h.rs_agent_top_h.active_agents[0].sequencer_h);
 
-  // Allow the DUT RX path to process the frames and emit them on
-  // the AXI RX interface before checking the counters.
-  #1us;
+  // UTL-104: replace the fixed #1us settle with a bounded completion wait.
+  // Sample on the RS RX clock (same clock as the AXI RX monitor) until the
+  // passive AXI RX monitor captures all frames; a stalled DUT fails here
+  // instead of settling blindly then failing the count check.
+  mac_wait_utils_c::wait_for_count_at_least(
+      num_rs_frames,
+      env_h.axi_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt,
+      env_h.rs_agent_top_h.active_agents[0].driver_h.vif,
+      MAC_COMPLETION_TIMEOUT_NS, timed_out);
+  if (timed_out)
+    `uvm_error("TEST", $sformatf("RX COMPLETION TIMEOUT: only %0d of %0d frames arrived on AXI RX",
+                                 env_h.axi_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt,
+                                 num_rs_frames))
 
-  drv_cnt     = rs_agent_cfg_c::drv_data_sent_cnt;
-  axi_mon_cnt = axi_agent_cfg_c::mon_rcvd_xtn_cnt;
+  // UTL-094: counts come from the instantiated agent handles.
+  drv_cnt     = env_h.rs_agent_top_h.active_agents[0].driver_h.drv_data_sent_cnt;
+  axi_mon_cnt = env_h.axi_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt;
 
   `uvm_info("TEST", $sformatf("RX BASE: RS driven=%0d, AXI RX captured=%0d",
                               drv_cnt, axi_mon_cnt), UVM_NONE)

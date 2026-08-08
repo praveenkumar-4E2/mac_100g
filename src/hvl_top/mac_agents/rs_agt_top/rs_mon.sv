@@ -41,6 +41,15 @@ class rs_monitor_c extends uvm_monitor;
   rs_agent_cfg_c            cfg_h;
   uvm_analysis_port #(frame_xtn_c) analysis_port;
 
+  // Instance-local frame counter (UTL-091), read by tests via the monitor
+  // handle; replaces the former class-static counter on the config.
+  int mon_rcvd_xtn_cnt = 0;
+
+  // Instance-local observed-frame queue (sanity tests): every published item
+  // handle is retained so a directed test can compare byte-exact contents in
+  // the order the frames were observed.
+  frame_xtn_c mon_frame_q[$];
+
   byte unsigned frame_q[$];
   frame_xtn_c   item;
   bit           in_frame    = 0;
@@ -306,7 +315,8 @@ task rs_monitor_c::finish_frame();
                          frame_q.size(), last_fcs))
   else begin
     frame_to_item(frame_q, eop_pos_v, last_err, last_fcs, item);
-    cfg_h.mon_rcvd_xtn_cnt++;
+    mon_rcvd_xtn_cnt++;
+    mon_frame_q.push_back(item);
     if (cfg_h.enable_logger)
       `uvm_info(get_type_name(),
                 $sformatf("mon rcvd frame: %s beats=%0d bytes=%0d",

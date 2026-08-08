@@ -13,8 +13,6 @@ class axi_agent_cfg_c extends uvm_object;
   // Default agent behavior
   uvm_active_passive_enum is_active = UVM_ACTIVE;
   int m_mac_id;
-  static int drv_data_sent_cnt = 0;
-  static int mon_rcvd_xtn_cnt = 0;
 
   // Virtual interface driven by the agent
   virtual axi4_stream_if vif;
@@ -47,6 +45,7 @@ class axi_agent_cfg_c extends uvm_object;
 
 
   extern function new(string name = "axi_agent_cfg_c");
+  extern function void validate();
   extern function string convert2string();
 endclass
 
@@ -60,6 +59,39 @@ endclass
  */
 function axi_agent_cfg_c::new(string name = "axi_agent_cfg_c");
   super.new(name);
+endfunction
+
+/**
+ * @brief Validates the agent configuration before child components are
+ *        created (UTL-082).
+ *
+ * Checks that the virtual interface is bound, that the active/passive role
+ * is coherent with the monitor presence, that the payload bounds are
+ * non-negative and not inverted, and that the opt-in backpressure stall
+ * limit is usable. All problems are collected and reported in a single
+ * actionable fatal message.
+ */
+function void axi_agent_cfg_c::validate();
+  string problems;
+
+  if (vif == null)
+    problems = {problems, " vif=null"};
+  if (is_active == UVM_PASSIVE && !has_monitor)
+    problems = {problems, " passive agent with has_monitor=0 observes nothing"};
+  if (min_payload_len < 0)
+    problems = {problems, $sformatf(" min_payload_len=%0d<0", min_payload_len)};
+  if (max_payload_len < 0)
+    problems = {problems, $sformatf(" max_payload_len=%0d<0", max_payload_len)};
+  if (min_payload_len > max_payload_len)
+    problems = {problems, $sformatf(" payload bounds [%0d:%0d] inverted",
+                                    min_payload_len, max_payload_len)};
+  if (generate_backpressure && tready_stall_max <= 0)
+    problems = {problems, $sformatf(" backpressure enabled but tready_stall_max=%0d<=0",
+                                    tready_stall_max)};
+
+  if (problems != "")
+    `uvm_fatal(get_type_name(),
+               $sformatf("%s: invalid configuration:%0s", get_type_name(), problems))
 endfunction
 
 /**

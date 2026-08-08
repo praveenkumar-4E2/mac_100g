@@ -23,6 +23,15 @@ class axi_monitor_c extends uvm_monitor;
   virtual axi4_stream_if vif;
   axi_agent_cfg_c         cfg_h;
 
+  // Instance-local frame counter (UTL-089), read by tests via the monitor
+  // handle; replaces the former class-static counter on the config.
+  int mon_rcvd_xtn_cnt = 0;
+
+  // Instance-local observed-frame queue (sanity tests): every published item
+  // handle is retained so a directed test can compare byte-exact contents in
+  // the order the frames were observed.
+  axi_item_c mon_frame_q[$];
+
   extern function new(string name = "axi_monitor_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
   extern task run_phase(uvm_phase phase);
@@ -139,7 +148,8 @@ function void axi_monitor_c::collect_item(byte unsigned frame_q[$], bit [7:0] tu
   axi_item_h.length_error    = 1'b0;
   axi_item_h.alignment_error = 1'b0;
 
-  cfg_h.mon_rcvd_xtn_cnt++;
+  mon_rcvd_xtn_cnt++;
+  mon_frame_q.push_back(axi_item_h);
   if (cfg_h.enable_logger) begin
     `uvm_info(get_type_name(),
               $sformatf("mon observed frame: %s nbytes=%0d",

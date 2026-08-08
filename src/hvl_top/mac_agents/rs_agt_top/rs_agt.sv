@@ -48,6 +48,7 @@ function void rs_agent_c::build_phase(uvm_phase phase);
     `uvm_fatal("CONFIG_ERROR",
                "uvm_config_db#(rs_agent_cfg_c)::get cannot find resource rs agent config")
   end
+  cfg_h.validate();
 
   if (cfg_h.is_active == UVM_ACTIVE) begin
     driver_h    =  rs_driver_c::type_id::create("driver_h",this);

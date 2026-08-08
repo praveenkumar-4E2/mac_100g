@@ -13,8 +13,6 @@ class rs_agent_cfg_c extends uvm_object;
   // Default agent behavior
   uvm_active_passive_enum is_active = UVM_ACTIVE;
   int m_mac_id;
-  static int drv_data_sent_cnt = 0;
-  static int mon_rcvd_xtn_cnt = 0;
 
   // Virtual interface driven by the agent (native MAC <-> RS)
   virtual mac_if vif;
@@ -58,6 +56,7 @@ class rs_agent_cfg_c extends uvm_object;
   bit enable_logger = 0;
 
   extern function new(string name = "rs_agent_cfg_c");
+  extern function void validate();
   extern function string convert2string();
 endclass
 
@@ -71,6 +70,38 @@ endclass
  */
 function rs_agent_cfg_c::new(string name = "rs_agent_cfg_c");
   super.new(name);
+endfunction
+
+/**
+ * @brief Validates the agent configuration before child components are
+ *        created (UTL-083).
+ *
+ * Checks that the virtual interface is bound, that the active/passive role
+ * is coherent with the monitor presence, that the payload bounds are
+ * non-negative and not inverted, and that the inter-packet gap value is
+ * a legal positive number of bit-times. All problems are collected and
+ * reported in a single actionable fatal message.
+ */
+function void rs_agent_cfg_c::validate();
+  string problems;
+
+  if (vif == null)
+    problems = {problems, " vif=null"};
+  if (is_active == UVM_PASSIVE && !has_monitor)
+    problems = {problems, " passive agent with has_monitor=0 observes nothing"};
+  if (min_payload_len < 0)
+    problems = {problems, $sformatf(" min_payload_len=%0d<0", min_payload_len)};
+  if (max_payload_len < 0)
+    problems = {problems, $sformatf(" max_payload_len=%0d<0", max_payload_len)};
+  if (min_payload_len > max_payload_len)
+    problems = {problems, $sformatf(" payload bounds [%0d:%0d] inverted",
+                                    min_payload_len, max_payload_len)};
+  if (ipg_bits <= 0)
+    problems = {problems, $sformatf(" ipg_bits=%0d<=0", ipg_bits)};
+
+  if (problems != "")
+    `uvm_fatal(get_type_name(),
+               $sformatf("%s: invalid configuration:%0s", get_type_name(), problems))
 endfunction
 
 /**

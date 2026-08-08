@@ -1,10 +1,10 @@
 //==============================================================================
 // File       : rtl/rx/rx_frame_emit.sv
 // Module     : rx_frame_emit
-// Purpose    : Store-and-forward owner for accepted RX payloads and client
+// Purpose    : Store-and-forward owner for accepted RX frames and client
 //              backpressure. Captures the 512-bit body beat stream, decides
-//              acceptance at EOP, and replays the client payload (header and
-//              FCS stripped) as lane-0 aligned beats.
+//              acceptance at EOP, and replays the client stream (DA/SA/LT +
+//              payload, wire FCS stripped) as lane-0 aligned beats.
 // IEEE Ref   : IEEE 802.3 Clause 2.3.1-2.3.2; Annex 4A receive decapsulation
 // Dependencies: mac_pkg
 // Author     : —
@@ -183,7 +183,8 @@ module rx_frame_emit #(
   endfunction
 
   //--------------------------------------------------------------------------
-  // Client beat emit: payload starts at frame_buffer[HEADER_OCTETS].
+  // Client beat emit: the delivered stream is the full frame content -
+  // DA/SA/LT + payload (FCS stripped), lane-0 aligned from frame_buffer[0].
   //--------------------------------------------------------------------------
   always_comb begin
     integer lane;
@@ -209,7 +210,7 @@ module rx_frame_emit #(
     client_data        = '0;
     if (client_valid) begin
       for (lane = 0; lane < 64; lane++) begin
-        idx = HEADER_OCTETS + int'(emit_index) + lane;
+        idx = int'(emit_index) + lane;
         if ((int'(emit_index) + lane < int'(emit_length)) && (idx < MAX_BODY_OCTETS))
           client_data[lane*8 +: 8] = frame_buffer[idx];
       end
@@ -275,17 +276,15 @@ module rx_frame_emit #(
               frame_valid    <= 1'b1;
               filter_hit     <= 1'b1;
               // MAX_CLIENT_DATA = 1500 (Clause 3.2.5). If Length/Type <= 1500,
-              // it is a length field; otherwise use the counted payload.
-              next_emit_length = (header_length_type <= MAX_CLIENT_DATA)
-                ? header_length_type[11:0] : payload_octets_in;
+              // it is a length field; otherwise use the counted payload. The
+              // client stream carries the full frame content: header (DA/SA/LT)
+              // + payload, wire FCS stripped.
+              next_emit_length = HEADER_OCTETS +
+                ((header_length_type <= MAX_CLIENT_DATA)
+                   ? header_length_type[11:0] : payload_octets_in);
               emit_length    <= next_emit_length;
-              if (next_emit_length == 12'd0) begin
-                state        <= CAPTURE;  // accepted but no payload to deliver
-                body_count   <= '0;
-              end else begin
-                emit_index   <= '0;
-                state        <= EMIT;
-              end
+              emit_index     <= '0;
+              state          <= EMIT;
               // COVER: Frame accepted for client delivery
             end else begin
               frame_drop     <= 1'b1;

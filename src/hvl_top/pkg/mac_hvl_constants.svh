@@ -88,4 +88,11 @@
   // Matches the current fixed "#1us" settle used in RX tests.
   localparam int SANITY_RX_SETTLE_DELAY_NS = 1000;
 
+  // Bounded wait defaults (W4): absolute simulation-time timeout for the
+  // reset/configuration-completion wait and for monitor/queue completion
+  // waits. Generous relative to the ~200ns normal bootstrap; a stalled DUT
+  // fails the test well within the bound.
+  localparam time MAC_CONFIG_DONE_TIMEOUT_NS = 1_000_000;   // 1 ms
+  localparam time MAC_COMPLETION_TIMEOUT_NS  = 1_000_000;   // 1 ms
+
 `endif // MAC_HVL_CONSTANTS_SVH

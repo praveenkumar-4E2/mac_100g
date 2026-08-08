@@ -21,16 +21,17 @@ endfunction
 
 function void mac_env_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
-  axi_agent_top_h    = axi_agent_top_c::type_id::create("axi_agent_top_h", this);
-  rs_agent_top_h    = rs_agent_top_c::type_id::create("rs_agent_top_h", this);
-  scoreboard_h      = mac_scoreboard_c::type_id::create("scoreboard_h", this);
-  reference_model_h = mac_reference_model_c::type_id::create("reference_model_h", this);
-  coverage_h        = mac_coverage_c::type_id::create("coverage_h", this);
   //mac_env_cfg
   if (!uvm_config_db#(mac_env_cfg_c)::get(this, "", "mac_env_cfg", cfg_h)) begin
     `uvm_fatal("CONFIG_ERROR",
                "uvm_config_db#(mac_env_cfg_c)::get cannot find resource mac env config")
   end
+  cfg_h.validate();
+  axi_agent_top_h    = axi_agent_top_c::type_id::create("axi_agent_top_h", this);
+  rs_agent_top_h    = rs_agent_top_c::type_id::create("rs_agent_top_h", this);
+  scoreboard_h      = mac_scoreboard_c::type_id::create("scoreboard_h", this);
+  reference_model_h = mac_reference_model_c::type_id::create("reference_model_h", this);
+  coverage_h        = mac_coverage_c::type_id::create("coverage_h", this);
 endfunction
 
 function void mac_env_c::connect_phase(uvm_phase phase);

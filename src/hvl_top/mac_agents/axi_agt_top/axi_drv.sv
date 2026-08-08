@@ -19,6 +19,10 @@ class axi_driver_c extends uvm_driver #(axi_item_c);
   virtual axi4_stream_if vif;
   axi_agent_cfg_c         cfg_h;
 
+  // Instance-local frame counter (UTL-088), read by tests via the driver
+  // handle; replaces the former class-static counter on the config.
+  int drv_data_sent_cnt = 0;
+
   extern function new(string name = "axi_driver_c", uvm_component parent = null);
 
   extern function void build_phase(uvm_phase phase);
@@ -58,6 +62,13 @@ function void axi_driver_c::build_phase(uvm_phase phase);
   if (cfg_h.vif == null) begin
     `uvm_fatal("CONFIG_ERROR", "axi_agent_cfg_c::vif is null")
   end
+  // UTL-106: in DUT-facing TX mode the DUT owns tready on axi_tx_vif; the
+  // TB must never drive it. Self-generated backpressure is only valid in
+  // agent-only harnesses, so reject the setting here instead of ever
+  // asserting tready from the source driver.
+  if (cfg_h.generate_backpressure)
+    `uvm_fatal("CONFIG_ERROR",
+               $sformatf("axi_agent_cfg_c::generate_backpressure=1 is not allowed for the DUT-facing AXI TX source driver: it would drive the DUT-owned tready; disable generate_backpressure in DUT-facing mode"))
   vif = cfg_h.vif;
 endfunction
 
@@ -142,7 +153,7 @@ task axi_driver_c::drive_frame(axi_item_c item);
     send_beat(tdata, tkeep, (b == beats - 1), tuser);
   end
 
-  cfg_h.drv_data_sent_cnt++;
+  drv_data_sent_cnt++;
   if (cfg_h.enable_logger) begin
     `uvm_info(get_type_name(),
               $sformatf("drv sent frame: %s beats=%0d bytes=%0d",
@@ -177,14 +188,9 @@ task axi_driver_c::send_beat(logic [511:0] tdata, logic [63:0] tkeep,
   vif.tkeep  <= tkeep;
   vif.tlast  <= tlast;
   vif.tuser  <= tuser;
-  // Optional self-generated backpressure for agent-only harnesses:
-  // hold tready low for a random number of cycles before the
-  // handshake. Only valid when the TB does not drive tready.
-  if (cfg_h.generate_backpressure) begin
-    vif.tready <= 1'b0;
-    repeat ($urandom_range(cfg_h.tready_stall_max)) @(posedge vif.drv_cb);
-    vif.tready <= 1'b1;
-  end
+  // UTL-106: no self-generated backpressure here — tready is DUT-owned on
+  // the DUT-facing AXI TX interface and the TB must not drive it. The
+  // generate_backpressure setting is rejected in build_phase.
   do begin
     @(posedge vif.drv_cb);
   end while (!vif.drv_cb.tready);

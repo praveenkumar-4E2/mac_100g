@@ -43,7 +43,9 @@ endfunction
  * and error injection vary per frame.
  */
 task axi_sequence_c::body();
-  if (!uvm_config_db#(axi_agent_cfg_c)::get(null, get_full_name(),
+  // UTL-100: look up the config from the starting sequencer's hierarchy
+  // rather than a null-context wildcard lookup.
+  if (!uvm_config_db#(axi_agent_cfg_c)::get(m_sequencer, "",
                                             "axi_agent_cfg", cfg_h)) begin
     `uvm_fatal(get_type_name(),
                "uvm_config_db#(axi_agent_cfg_c)::get cannot find resource axi agt config")
