@@ -45,10 +45,6 @@ class rs_monitor_c extends uvm_monitor;
   // handle; replaces the former class-static counter on the config.
   int mon_rcvd_xtn_cnt = 0;
 
-  // Instance-local observed-frame queue (sanity tests): every published item
-  // handle is retained so a directed test can compare byte-exact contents in
-  // the order the frames were observed.
-  frame_xtn_c mon_frame_q[$];
 
   byte unsigned frame_q[$];
   frame_xtn_c   item;
@@ -316,7 +312,6 @@ task rs_monitor_c::finish_frame();
   else begin
     frame_to_item(frame_q, eop_pos_v, last_err, last_fcs, item);
     mon_rcvd_xtn_cnt++;
-    mon_frame_q.push_back(item);
     if (cfg_h.enable_logger)
       `uvm_info(get_type_name(),
                 $sformatf("mon rcvd frame: %s beats=%0d bytes=%0d",
@@ -388,5 +383,4 @@ function void rs_monitor_c::frame_to_item(byte unsigned frame_q[$], int eop_pos_
   item.length_error    = (canon.result == MAC_FRAME_RESULT_LENGTH_ERROR);
   item.alignment_error = (canon.result == MAC_FRAME_RESULT_ALIGNMENT_ERROR);
 endfunction
-
 
