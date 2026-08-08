@@ -60,34 +60,6 @@
   // because the wire FCS is always stripped before delivery.
   localparam int AXI_TUSER_FCS_PRESENT_BIT = 1;
 
-  //========================================================================
-  // Default sanity timeout and settle values.
-  // These are temporary defaults used during the migration; they will be
-  // replaced by typed configuration fields in mac_tb_cfg_c (W4) and
-  // bounded wait APIs in mac_wait_utils.svh (W4). Do not change existing
-  // behavior when adding these constants.
-  //========================================================================
-
-  // Reset-poll timeout: maximum number of mac_clk cycles to wait for
-  // rst_done before declaring a timeout failure.
-  localparam int SANITY_RST_TIMEOUT_CYCLES = 10_000;
-
-  // APB configuration settle delay after reset deassertion (ns).
-  // Matches the current top-level "#100ns" before the APB bootstrap write.
-  localparam int SANITY_APB_CFG_DELAY_NS = 100;
-
-  // APB post-write settle delay before publishing rst_done (ns).
-  // Matches the current top-level "#50ns" after the APB bootstrap write.
-  localparam int SANITY_APB_DONE_DELAY_NS = 50;
-
-  // APB write timeout: maximum number of APB clock cycles to wait for
-  // pready before declaring a timeout failure.
-  localparam int SANITY_APB_WRITE_TIMEOUT_CYCLES = 64;
-
-  // RX test settle delay after stimulus completion (ns).
-  // Matches the current fixed "#1us" settle used in RX tests.
-  localparam int SANITY_RX_SETTLE_DELAY_NS = 1000;
-
   // Bounded wait defaults (W4): absolute simulation-time timeout for the
   // reset/configuration-completion wait and for monitor/queue completion
   // waits. Generous relative to the ~200ns normal bootstrap; a stalled DUT
