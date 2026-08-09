@@ -1,12 +1,15 @@
-+incdir+../../src/globals
 +incdir+../../src/hdl_top
 +incdir+../../src/hdl_top/interfaces
 +incdir+../../src/hvl_top/tb
 +incdir+../../src/hvl_top/test
++incdir+../../src/hvl_top/test/sequences/axi_sequences
++incdir+../../src/hvl_top/test/sequences/rs_sequences
++incdir+../../src/hvl_top/test/virtual_sequences
 +incdir+../../src/hvl_top/pkg
 +incdir+../../src/hvl_top/common
 +incdir+../../src/hvl_top/mac_agents/rs_agt_top
 +incdir+../../src/hvl_top/mac_agents/axi_agt_top
++incdir+../../src/hvl_top/mac_agents/apb_agt_top
 +incdir+../../src/hvl_top/mac_agents/mac_reset_agt
 
 # RTL packages (compile first)
@@ -20,6 +23,7 @@
 
 # RTL interfaces
 ../../src/hdl_top/interfaces/apb_if.sv
+../../src/hdl_top/interfaces/mac_reset_if.sv
 ../../src/hdl_top/interfaces/mac_if.sv
 ../../src/hdl_top/interfaces/axi4_stream_if.sv
 
@@ -74,6 +78,5 @@
 ../../src/hdl_top/integration/mac_top.sv
 
 # HVL
-../../src/globals/mac_common_defs.sv
-../../src/hvl_top/test/mac_test_pkg.sv
+../../src/hvl_top/pkg/mac_test_pkg.sv
 ../../src/hvl_top/tb/mac_tb_top.sv
