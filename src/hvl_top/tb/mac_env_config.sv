@@ -5,6 +5,24 @@ class mac_env_cfg_c extends uvm_object;
 
   bit has_scoreboard = 1;
 
+  // Scoreboard policy.  The default preserves the existing end-to-end
+  // packet checks and strict FIFO ordering; tests can narrow checking for a
+  // feature-focused scenario without changing checker source.
+  bit scoreboard_enable_tx_check       = 1;
+  bit scoreboard_enable_rx_check       = 1;
+  bit scoreboard_check_addresses       = 1;
+  bit scoreboard_check_ether_type      = 1;
+  bit scoreboard_check_payload         = 1;
+  bit scoreboard_check_fcs             = 1;
+  bit scoreboard_check_error_flags     = 1;
+  // Zero disables elapsed-time checking.  This is the compatibility default
+  // until every test has an agreed end-of-traffic timeout budget.
+  time scoreboard_unmatched_timeout_ns = 0;
+  // An asserted reset starts a new comparison epoch.  Queued traffic from
+  // the prior epoch is deliberately flushed and counted, never compared
+  // across reset.
+  bit scoreboard_flush_on_reset        = 1;
+
   bit has_protocol_checkers = 1;
 
   // Shared predictor/checker limits.  Tests may override these for a
@@ -47,6 +65,7 @@ class mac_env_cfg_c extends uvm_object;
 
   int num_duts = 1;
   uvm_reg_block ral_h;
+  uvm_reg_adapter ral_adapter_h;
   int num_reset_agents = 0;
 
 
@@ -82,6 +101,9 @@ function void mac_env_cfg_c::validate();
   if (max_frame_octets == 0 || max_frame_octets > 65535)
     problems = {problems, $sformatf(" max_frame_octets=%0d outside RTL range 1..65535",
                                     max_frame_octets)};
+  if (scoreboard_unmatched_timeout_ns < 0)
+    problems = {problems, $sformatf(" scoreboard_unmatched_timeout_ns=%0t<0",
+                                    scoreboard_unmatched_timeout_ns)};
 
   if (num_axi_active_agents < 0)
     problems = {problems, $sformatf(" num_axi_active_agents=%0d<0",
