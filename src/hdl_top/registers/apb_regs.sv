@@ -106,6 +106,7 @@ module apb_regs #(
   logic        read_valid;
   logic        write_valid;
   logic        status_access;
+  logic        status_setup;
   logic [GROUP_COUNT-1:0] group_low_select;
   logic [GROUP_COUNT-1:0] group_high_select;
 
@@ -117,6 +118,9 @@ module apb_regs #(
   logic [15:0] cfg_min_frame_size_apb;
   logic [2:0]  cfg_mac_speed_apb;
   logic        cfg_speed_override_apb;
+  logic        cfg_pause_tx_enable_apb;
+  logic        cfg_pause_tx_soft_req_apb;
+  logic [15:0] cfg_pause_quanta_apb;
   logic [2:0]  effective_mac_speed_apb;
   logic [GROUP_COUNT-1:0][47:0] cfg_group_addr_apb;
   logic [GROUP_COUNT-1:0]       cfg_group_valid_apb;
@@ -165,6 +169,7 @@ module apb_regs #(
     .read_valid         (read_valid),
     .write_valid        (write_valid),
     .status_access      (status_access),
+    .status_setup       (status_setup),
     .group_low_select   (group_low_select),
     .group_high_select  (group_high_select)
   );
@@ -194,6 +199,9 @@ module apb_regs #(
     .cfg_min_frame_size_apb (cfg_min_frame_size_apb),
     .cfg_group_addr_apb   (cfg_group_addr_apb),
     .cfg_group_valid_apb  (cfg_group_valid_apb),
+    .cfg_pause_tx_enable_apb (cfg_pause_tx_enable_apb),
+    .cfg_pause_tx_soft_req_apb (cfg_pause_tx_soft_req_apb),
+    .cfg_pause_quanta_apb (cfg_pause_quanta_apb),
     .cfg_mac_speed        (cfg_mac_speed),
     .cfg_speed_override   (cfg_speed_override),
     .cfg_mac_speed_apb    (cfg_mac_speed_apb),
@@ -371,6 +379,7 @@ module apb_regs #(
       REG_MIN_FRAME_SIZE:        prdata = { 16'b0, cfg_min_frame_size_apb };
       REG_MAC_SPEED_CONFIG:      prdata = { 25'b0, effective_mac_speed_apb,
                                             cfg_speed_override_apb, cfg_mac_speed_apb };
+      REG_PAUSE_TX_CONFIG:       prdata = { 16'b0, cfg_pause_quanta_apb };
       REG_OVERSIZE_CONTROL:      prdata = cfg_control_apb & 32'h40;
       REG_PAUSE_CONTROL:         prdata = cfg_control_apb & 32'h30;
       REG_PAUSE_STATUS:          prdata = status_snapshot[5];
@@ -406,7 +415,7 @@ module apb_regs #(
       status_request <= 1'b0;
       status_ack     <= 1'b0;
     end else begin
-      if (read_valid && status_access && (status_ack_apb == status_request)) begin
+      if (status_setup && (status_ack_apb == status_request)) begin
         status_request <= ~status_request;
       end
       status_ack <= status_ack_apb;

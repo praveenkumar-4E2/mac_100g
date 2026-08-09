@@ -38,6 +38,9 @@ module apb_cfg_bridge #(
   output logic [15:0]                  cfg_max_client_data_apb,
   output logic [GROUP_COUNT-1:0][47:0] cfg_group_addr_apb,
   output logic [GROUP_COUNT-1:0]       cfg_group_valid_apb,
+  output logic                        cfg_pause_tx_enable_apb,
+  output logic                        cfg_pause_tx_soft_req_apb,
+  output logic [15:0]                 cfg_pause_quanta_apb,
   output logic                        cfg_pause_tx_enable,
   output logic                        cfg_pause_tx_soft_req,
   output logic [15:0]                 cfg_pause_quanta,
@@ -85,10 +88,6 @@ module apb_cfg_bridge #(
   logic valid;
   logic [WIDTH-1:0] bundle;
   logic [WIDTH-1:0] bundle_dst;
-  logic             cfg_pause_tx_enable_apb;
-  logic             cfg_pause_tx_soft_req_apb;
-  logic [15:0]      cfg_pause_quanta_apb;
-
   reg_file #(
     .GROUP_COUNT (GROUP_COUNT)
   ) reg_file_inst (
@@ -158,6 +157,19 @@ module apb_cfg_bridge #(
     .data_dst  (bundle_dst),
     .ack_dst   (valid)
   );
+
+  `ifndef SYNTHESIS
+    always_ff @(posedge apb_clk) begin
+      if ($test$plusargs("MAC_CFG_BRIDGE_DEBUG") && write_pulse)
+        $display("%0t CFG_BRG: write_pulse addr=%h data=%h ctrl_apb=%h", $time, write_addr, write_data, cfg_control_apb);
+      if ($test$plusargs("MAC_CFG_BRIDGE_DEBUG") && send)
+        $display("%0t CFG_BRG: send pending=%b ready=%b", $time, pending, ready);
+    end
+    always_ff @(posedge mac_clk) begin
+      if ($test$plusargs("MAC_CFG_BRIDGE_DEBUG") && valid)
+        $display("%0t CFG_BRG: valid cfg_control=%h", $time, cfg_control);
+    end
+  `endif
 
   always_ff @(posedge mac_clk) begin
     if (mac_rst) begin
