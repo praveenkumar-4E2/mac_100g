@@ -988,6 +988,27 @@ module mac_top #(
   assign interrupt_status             = status_snapshot[3][6:0];
 
   `ifndef SYNTHESIS
+    // TEMP-DEBUG: pause chain visibility
+    logic pause_evt_q;
+    logic pause_active_q;
+    logic pause_ack_q;
+    always_ff @(posedge mac_clk) begin
+      pause_evt_q   <= control_event_valid;
+      pause_active_q <= pause_active;
+      pause_ack_q   <= pause_event_accepted;
+      if (control_event_valid && !pause_evt_q)
+        $display("%0t PAUSE_DBG: ctrl_evt=1 opcode=%h time=%h cfg=%h pause_evt=%b",
+                 $time, control_opcode, pause_time, cfg_control,
+                 (control_event_valid && cfg_control[0] && cfg_control[4]));
+      if (pause_event_accepted && !pause_ack_q)
+        $display("%0t PAUSE_DBG: accepted=1 time=%h pause_active=%b",
+                 $time, pause_timer_load_time, pause_active);
+      if (pause_active && !pause_active_q)
+        $display("%0t PAUSE_DBG: pause_active ROSE", $time);
+    end
+  `endif
+
+  `ifndef SYNTHESIS
     always_ff @(posedge mac_clk) begin
       if (!mac_rst) begin
         assert (!(pause_active && data_request_ready));

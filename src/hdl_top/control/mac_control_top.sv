@@ -105,10 +105,12 @@ module mac_control_top #(
   //   - pause_tx_pending status feedback: req_valid && !req_ready
   //   - This module handles RX-side PAUSE frame decoding only
   //
-  // Beat layout for MAC Control payload (lane 0 = first transmitted byte):
-  //   lanes 0-1  : Opcode (opcode_high in lane 0)
-  //   lanes 2-3  : PAUSE time (high byte in lane 2)
-  //   lanes 4+   : Control parameters / pad
+  // Beat layout for the delivered payload stream (DA/SA/LT header followed by
+  // the MAC Control payload):
+  //   bytes 0-13 : DA/SA/LT header
+  //   bytes 14-15: Opcode (opcode_high in byte 14)
+  //   bytes 16-17: PAUSE time (high byte in byte 16)
+  //   bytes 18+  : Control parameters / pad
   //============================================================================
 
   import pause_pkg::*;
@@ -160,13 +162,14 @@ module mac_control_top #(
 
       if (payload_beat && is_control) begin
         if (payload_sop) begin
-          // Opcode occupies payload lanes 0-1 (opcode_high in lane 0); PAUSE
-          // time lanes 2-3.  Fields are big-endian: lane 0 is the MSB.
-          control_opcode <= { payload_data[7:0], payload_data[15:8] };
+          // The payload stream carries the DA/SA/LT header, so the opcode
+          // occupies bytes 14-15 (opcode_high in byte 14); PAUSE time bytes
+          // 16-17.  Fields are big-endian: byte 14 is the opcode MSB.
+          control_opcode <= { payload_data[14*8 +: 8], payload_data[15*8 +: 8] };
           if (beat_bytes(payload_eop, payload_eop_pos) >= EOP_POS_W'(4)) begin
-            pause_time          <= { payload_data[23:16], payload_data[31:24] };
-            control_event_valid <= ({ payload_data[7:0], payload_data[15:8] } == PAUSE_OPCODE);
-            if ({ payload_data[7:0], payload_data[15:8] } != PAUSE_OPCODE)
+            pause_time          <= { payload_data[16*8 +: 8], payload_data[17*8 +: 8] };
+            control_event_valid <= ({ payload_data[14*8 +: 8], payload_data[15*8 +: 8] } == PAUSE_OPCODE);
+            if ({ payload_data[14*8 +: 8], payload_data[15*8 +: 8] } != PAUSE_OPCODE)
               unsupported_control <= 1'b1;
             // COVER: Unsupported control opcode received
             // COVER: PAUSE control frame decoded
@@ -183,6 +186,18 @@ module mac_control_top #(
       end
     end
   end
+
+  `ifndef SYNTHESIS
+    // TEMP-DEBUG: print the SOP control decode attempt with raw byte lanes
+    always_ff @(posedge clk) begin
+      if (payload_sop && payload_beat && is_control)
+        $display("%0t MAC_CTRL_DBG: sop beat_bytes=%0d bytes0-1=%02x%02x bytes14-15=%02x%02x opcode_dec=%h",
+                 $time, beat_bytes(payload_eop, payload_eop_pos),
+                 payload_data[7:0], payload_data[15:8],
+                 payload_data[15*8 +: 8], payload_data[14*8 +: 8],
+                 {payload_data[14*8 +: 8], payload_data[15*8 +: 8]});
+    end
+  `endif
 
 endmodule
 

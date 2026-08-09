@@ -1,7 +1,7 @@
 //==============================================================================
 // File       : rtl/pause/pause_tx.sv
 // Module     : pause_tx
-// Purpose    : PAUSE frame generator for MAC control frames (single 512-bit beat)
+// Purpose    : PAUSE frame generator for MAC control frames (two 512-bit beats)
 // IEEE Ref   : Annex 31A, Annex 31B
 // Dependencies: pause_pkg, eth_pkg, mac_pkg
 // Author     : —
@@ -60,7 +60,7 @@ module pause_tx #(
   //   out_keep           — Output beat byte enables
   //   out_sop            — Start of packet (single-beat frame)
   //   out_eop            — End of packet (single-beat frame)
-  //   out_eop_pos        — EOP valid-byte count (60)
+  //   out_eop_pos        — EOP valid-byte count on the final beat (8)
   //   out_dest_addr      — Destination MAC (multicast)
   //   out_src_addr       — Source MAC
   //   out_length_type    — Length/Type field (MAC control)
@@ -78,16 +78,20 @@ module pause_tx #(
   //   Bytes [16:17] — Pause Time: quanta value (units of 512 bit-times)
   //   Bytes [18:59] — Pad: 42 zero octets (padding to minimum frame size)
   //   (FCS appended by downstream CRC engine, not generated here)
-  // The 60-octet frame fits within a single 512-bit beat (lane 0 = byte 0).
+  // The line-side wire image adds preamble/SFD and FCS (72 octets total),
+  // so it is emitted as one full beat followed by one 8-octet final beat.
   //============================================================================
 
   import pause_pkg::*;
   import eth_pkg::*;
+  import crc32_pkg::*;
 
   logic        active;
+  logic        beat_index;
   logic [47:0] source_addr_reg;
   logic [15:0] pause_time_reg;
   logic        output_transfer;
+  logic [31:0] pause_fcs;
 
   // Build a byte-enable mask for the low n lanes.
   function automatic logic [KEEP_WIDTH-1:0] keep_mask(input integer n);
@@ -97,50 +101,77 @@ module pause_tx #(
         keep_mask[j] = 1'b1;
   endfunction
 
+  // Return a byte from the 60-octet MAC control-frame body (DA through pad).
+  function automatic logic [7:0] pause_body_byte(input integer unsigned index);
+    if (index < 6)
+      pause_body_byte = PAUSE_MULTICAST_DA[47 - 8*index -: 8];
+    else if (index < 12)
+      pause_body_byte = source_addr_reg[47 - 8*(index - 6) -: 8];
+    else if (index < 14)
+      pause_body_byte = ETHERTYPE_MAC_CONTROL[15 - 8*(index - 12) -: 8];
+    else if (index < 16)
+      pause_body_byte = PAUSE_OPCODE[15 - 8*(index - 14) -: 8];
+    else if (index < 18)
+      pause_body_byte = pause_time_reg[15 - 8*(index - 16) -: 8];
+    else
+      pause_body_byte = 8'h00;
+  endfunction
+
   assign output_transfer = out_valid && out_ready;
   assign pause_req_ready = pause_tx_enable && !active;
   assign out_valid       = active;
-  assign out_sop         = active;
-  assign out_eop         = active;
-  assign out_eop_pos     = EOP_POS_W'(mac_pkg::CONTROL_FRAME_OCTETS);
-  assign out_keep        = keep_mask(mac_pkg::CONTROL_FRAME_OCTETS);
+  assign out_sop         = active && !beat_index;
+  assign out_eop         = active && beat_index;
+  assign out_eop_pos     = beat_index ? EOP_POS_W'(8) : '0;
+  assign out_keep        = keep_mask(beat_index ? 8 : KEEP_WIDTH);
   assign out_dest_addr   = PAUSE_MULTICAST_DA;
   assign out_src_addr    = source_addr_reg;
   assign out_length_type = ETHERTYPE_MAC_CONTROL;
 
   always_comb begin
+    logic [31:0] crc_state;
     integer b;
+    integer wire_index;
+
+    crc_state = CRC32_INIT;
+    for (b = 0; b < mac_pkg::CONTROL_FRAME_OCTETS; b++)
+      crc_state = update_byte(crc_state, pause_body_byte(b));
+    pause_fcs = crc32_finalize(crc_state);
+
     out_data = '0;
     for (b = 0; b < KEEP_WIDTH; b++) begin
-      if (b < 6)
-        out_data[8*b +: 8] = PAUSE_MULTICAST_DA[47 - 8*b -: 8];
-      else if (b < 12)
-        out_data[8*b +: 8] = source_addr_reg[47 - 8*(b - 6) -: 8];
-      else if (b < 14)
-        out_data[8*b +: 8] = ETHERTYPE_MAC_CONTROL[15 - 8*(b - 12) -: 8];
-      else if (b < 16)
-        out_data[8*b +: 8] = PAUSE_OPCODE[15 - 8*(b - 14) -: 8];
-      else if (b < 18)
-        out_data[8*b +: 8] = pause_time_reg[15 - 8*(b - 16) -: 8];
-      else
-        out_data[8*b +: 8] = 8'h00;
+      wire_index = (beat_index ? KEEP_WIDTH : 0) + b;
+      if (wire_index < 7)
+        out_data[8*b +: 8] = 8'h55;
+      else if (wire_index == 7)
+        out_data[8*b +: 8] = 8'hD5;
+      else if (wire_index < 68)
+        out_data[8*b +: 8] = pause_body_byte(wire_index - 8);
+      else if (wire_index < 72)
+        out_data[8*b +: 8] = pause_fcs[8*(wire_index - 68) +: 8];
     end
   end
 
   always_ff @(posedge clk) begin
     if (rst) begin
       active          <= 1'b0;
+      beat_index      <= 1'b0;
       source_addr_reg <= '0;
       pause_time_reg  <= '0;
     end else begin
       if (!active && pause_req_valid && pause_req_ready) begin
         active          <= 1'b1;
+        beat_index      <= 1'b0;
         source_addr_reg <= source_addr;
         pause_time_reg  <= pause_time;
         // COVER: PAUSE quanta loaded — frame transmission starting
       end else if (output_transfer) begin
-        active <= 1'b0;
-        // COVER: PAUSE frame transmitted — end of packet
+        if (beat_index) begin
+          active <= 1'b0;
+          // COVER: PAUSE frame transmitted — end of packet
+        end else begin
+          beat_index <= 1'b1;
+        end
       end
     end
   end

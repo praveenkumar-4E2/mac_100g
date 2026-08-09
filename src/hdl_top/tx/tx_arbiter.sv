@@ -137,7 +137,10 @@ module tx_arbiter #(
           state_next = DATA;
         end else if (pause_valid) begin
           select_pause = 1'b1;
-          state_next   = PAUSE;
+          // The IDLE-cycle PAUSE beat is already visible at the output.
+          // Handshake it here so it is not emitted a second time in PAUSE.
+          pause_ready  = out_ready;
+          state_next   = pause_eop && out_ready ? IDLE : PAUSE;
         end
       end
 
