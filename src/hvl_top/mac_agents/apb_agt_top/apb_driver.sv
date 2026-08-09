@@ -100,9 +100,20 @@ endtask
  *
  * Every @(posedge) this driver takes passes through tick() so setup/access/
  * completion cycle metadata uses a consistent per-driver timebase.
+ *
+ * The wait uses the raw clock edge rather than a clocking-block posedge event.
+ * The drv_cb clocking block applies a #1step input skew, so its posedge event
+ * fires one step before the real edge; if the driver resumes (get_next_item,
+ * reset release) inside that pre-edge window, a second immediate tick() can
+ * return in the same timestep and collapse the setup phase to zero cycles.
+ * The raw clock edge fires exactly at the transition and cannot re-fire within
+ * the same timestep, so every tick advances exactly one APB clock and the
+ * setup phase is always observed for one full cycle by the DUT.  Slave-side
+ * handshake sampling still goes through drv_cb, which captures the pre-edge
+ * values the DUT's always_ff blocks consume.
  */
 task apb_driver_c::tick();
-  @(posedge cfg_h.m_vif.drv_cb);
+  @(posedge cfg_h.m_vif.clk);
   m_cycle++;
 endtask
 

@@ -194,7 +194,12 @@ task axi_driver_c::send_beat(logic [511:0] tdata, logic [63:0] tkeep,
   // the DUT-facing AXI TX interface and the TB must not drive it. The
   // generate_backpressure setting is rejected in build_phase.
   do begin
-    @(posedge vif.drv_cb);
+    // Wait on the raw clock edge, not the clocking-block posedge event:
+    // drv_cb applies a #1step input skew whose event fires one step before
+    // the real edge, so a beat driven from an item that arrives inside that
+    // pre-edge window can have its first wait return in the same timestep,
+    // collapsing the handshake to zero cycles and dropping the beat.
+    @(posedge vif.clk);
   end while (!vif.drv_cb.tready);
   vif.tvalid <= 1'b0;
 endtask

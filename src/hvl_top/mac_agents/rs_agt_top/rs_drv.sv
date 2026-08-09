@@ -285,7 +285,15 @@ task rs_driver_c::send_beat(logic [511:0] data, logic [63:0] keep, bit sop, bit 
   vif.error       <= err;
   vif.fcs_present <= fcs_present;
   do begin
-    @(posedge vif.drv_cb);
+    // Wait on the raw clock edge, not the clocking-block posedge event:
+    // drv_cb applies a #1step input skew whose event fires one step before
+    // the real edge, so a beat driven from an item that arrives inside that
+    // pre-edge window can have its first wait return in the same timestep,
+    // collapsing the handshake to zero cycles and dropping the beat (the
+    // DUT would then mis-decode a mid-frame beat as a new frame start).
+    // The raw edge fires exactly at the transition and cannot re-fire within
+    // a timestep, so the beat is held for at least one full clock.
+    @(posedge vif.clk);
   end while (!vif.drv_cb.ready);
   vif.valid <= 1'b0;
 endtask
