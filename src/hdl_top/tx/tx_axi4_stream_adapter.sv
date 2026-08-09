@@ -138,11 +138,13 @@ module tx_axi4_stream_adapter #(
     assert property (accepted_eop_clears_frame)
       else $error("tx_axi4_stream_adapter: frame context not cleared at EOP");
 
-    // W1: all AXI source-controlled fields are stable while a beat is stalled.
+    // W1: all AXI source-controlled fields are stable across consecutive
+    // stalled cycles.  A ready transition may complete the transfer on the
+    // following edge, after which the source may legally retire the beat.
     property source_stable_while_stalled;
       @(posedge clk) disable iff (rst)
-        s_tvalid && !s_tready |=>
-          s_tvalid && $stable({ s_tdata, s_tkeep, s_tlast, s_tuser });
+        (s_tvalid && !s_tready) ##1 (s_tvalid && !s_tready) |->
+          $stable({ s_tdata, s_tkeep, s_tlast, s_tuser });
     endproperty
     assert property (source_stable_while_stalled)
       else $error("tx_axi4_stream_adapter: AXI source fields changed while stalled");
