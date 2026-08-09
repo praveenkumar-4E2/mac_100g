@@ -15,7 +15,10 @@ class mac_txn_logger_c;
     if (!clp.get_arg_value("+UVM_TESTNAME=", test_name)) test_name = "mac_default";
     if (clp.get_arg_value("+MAC_TXN_LOG=", requested_path)) path = requested_path;
     else path = {test_name, ".transactions.log"};
-    fd = $fopen(path, "w");
+    // Append to the simulator/UVM test log when +MAC_TXN_LOG points there.
+    // This keeps one chronological artifact per test instead of creating a
+    // separate transaction file.
+    fd = $fopen(path, "a");
     if (fd == 0) $display("MAC_TXN_LOG: unable to open '%s'", path);
     else $fdisplay(fd, "# MAC transaction trace | test=%s", test_name);
   endfunction

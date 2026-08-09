@@ -93,6 +93,32 @@
       end
     endtask
 
+    // AXI4-Stream counterpart of wait_for_count_at_least.  Keep interface
+    // types explicit so tests can use clock-based waits on either MAC path.
+    static task wait_for_axi_count_at_least(
+        input int unsigned              target,
+        ref int                         count,
+        input virtual axi4_stream_if    vif,
+        input time                      timeout_ns,
+        output bit                      timed_out
+    );
+      time start_ts;
+      start_ts = $time;
+      timed_out = 1'b0;
+      forever begin
+        if (count >= int'(target))
+          break;
+        if (elapsed_since(start_ts) >= timeout_ns) begin
+          timed_out = 1'b1;
+          break;
+        end
+        if (vif == null)
+          #1ns;
+        else
+          @(posedge vif.clk);
+      end
+    endtask
+
     //------------------------------------------------------------------------
     // Bounded queue-drain wait (UTL-103).
     //

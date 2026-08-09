@@ -67,14 +67,13 @@ package mac_test_pkg;
   `include "mac_virtual_seq.sv"
   `include "mac_tb.sv"
 
-  // Test layer: base test first, then concrete smoke/negative/unit tests.
+  // Test layer: base first, then sanity and directed payload feature tests.
   `include "mac_base_test.svh"
-
-  `include "mac_smoke_test.svh"
-  `include "mac_tx_payload_50_test.svh"
-
-  `include "mac_neg_cfg_test.svh"
-
-  `include "mac_hvl_utils_test.svh"
+  `include "mac_sanity_test.svh"
+  `include "mac_payload_tests.svh"
+  `include "mac_rx_basic_test.svh"
+  `include "mac_register_access_test.svh"
+  `include "mac_parallel_tx_rx_test.svh"
+  `include "mac_pause_test.svh"
 
 endpackage
