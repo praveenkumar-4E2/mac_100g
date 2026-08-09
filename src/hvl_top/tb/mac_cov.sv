@@ -1,5 +1,6 @@
 `uvm_analysis_imp_decl(_axi_cov)
 `uvm_analysis_imp_decl(_rs_cov)
+`uvm_analysis_imp_decl(_apb_cov)
 
 
 class mac_coverage_c extends uvm_component;
@@ -10,6 +11,7 @@ class mac_coverage_c extends uvm_component;
   bit enabled;
   uvm_analysis_imp_axi_cov #(axi_item_c, mac_coverage_c) axi_observed_imp;
   uvm_analysis_imp_rs_cov #(frame_xtn_c, mac_coverage_c) rs_observed_imp;
+  uvm_analysis_imp_apb_cov #(apb_transfer_t, mac_coverage_c) apb_observed_imp;
 
   covergroup axi_frame_cg with function sample(int unsigned payload_bytes,
                                                 bit fcs_present,
@@ -47,11 +49,30 @@ class mac_coverage_c extends uvm_component;
     pause_x_fault: cross cp_pause, cp_fault;
   endgroup
 
+  covergroup apb_cfg_cg with function sample(bit is_write, bit [15:0] addr,
+                                              bit [31:0] data);
+    option.per_instance = 1;
+    cp_direction: coverpoint is_write { bins read = {0}; bins write = {1}; }
+    cp_register: coverpoint addr {
+      bins global_control = {reg_map_pkg::REG_GLOBAL_CONTROL};
+      bins mac_address[] = {reg_map_pkg::REG_MAC_ADDR_LOW, reg_map_pkg::REG_MAC_ADDR_HIGH};
+      bins frame_limits[] = {reg_map_pkg::REG_MIN_FRAME_SIZE, reg_map_pkg::REG_MAX_FRAME_SIZE};
+      bins pause = {reg_map_pkg::REG_PAUSE_TX_CONFIG};
+      bins speed = {reg_map_pkg::REG_MAC_SPEED_CONFIG};
+      bins group = {[reg_map_pkg::REG_GROUP_BASE:16'h006c]};
+      bins status[] = {[reg_map_pkg::REG_PAUSE_STATUS:reg_map_pkg::REG_RX_UNSUPPORTED_COUNT]};
+    }
+    cp_pause_request: coverpoint data[reg_map_pkg::PAUSE_TX_SOFT_REQ_BIT]
+      iff (addr == reg_map_pkg::REG_PAUSE_TX_CONFIG && is_write);
+    global_x_direction: cross cp_register, cp_direction;
+  endgroup
+
   extern function new(string name = "mac_coverage_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
 
   extern function void write_axi_cov(axi_item_c m_axi_xtn);
   extern function void write_rs_cov(frame_xtn_c m_rs_xtn);
+  extern function void write_apb_cov(apb_transfer_t m_apb_xtn);
 endclass
 
 /**
@@ -72,8 +93,10 @@ function mac_coverage_c::new(string name = "mac_coverage_c", uvm_component paren
   super.new(name, parent);
   axi_observed_imp = new("axi_observed_imp", this);
   rs_observed_imp = new("rs_observed_imp", this);
+  apb_observed_imp = new("apb_observed_imp", this);
   axi_frame_cg = new;
   rs_frame_cg = new;
+  apb_cfg_cg = new;
 endfunction
 
 function void mac_coverage_c::build_phase(uvm_phase phase);
@@ -99,6 +122,11 @@ function void mac_coverage_c::write_rs_cov(frame_xtn_c m_rs_xtn);
                        m_rs_xtn.alignment_error,
                        (m_rs_xtn.dst_addr == 48'h01_80_c2_00_00_01) &&
                        (m_rs_xtn.ether_type == 16'h8808));
+endfunction
+
+function void mac_coverage_c::write_apb_cov(apb_transfer_t m_apb_xtn);
+  if (enabled && m_apb_xtn != null && m_apb_xtn.status == APB_OK)
+    apb_cfg_cg.sample(m_apb_xtn.pwrite, m_apb_xtn.addr, m_apb_xtn.wdata);
 endfunction
 
 

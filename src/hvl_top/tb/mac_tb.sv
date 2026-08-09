@@ -11,6 +11,7 @@ class mac_env_c extends uvm_env;
   mac_reference_model_c reference_model_h;
   mac_coverage_c        coverage_h;
   mac_protocol_checker_c protocol_checker_h;
+  uvm_reg_predictor #(apb_transfer_t) ral_predictor_h;
   mac_env_cfg_c         cfg_h;
 
 
@@ -51,6 +52,8 @@ function void mac_env_c::build_phase(uvm_phase phase);
     coverage_h = mac_coverage_c::type_id::create("coverage_h", this);
   if (cfg_h.has_protocol_checkers)
     protocol_checker_h = mac_protocol_checker_c::type_id::create("protocol_checker_h", this);
+  if (cfg_h.ral_h != null && cfg_h.ral_adapter_h != null)
+    ral_predictor_h = uvm_reg_predictor#(apb_transfer_t)::type_id::create("ral_predictor_h", this);
   if (cfg_h.has_virtual_sequencer)
     virtual_sequencer_h = mac_virtual_sequencer_c::type_id::create("virtual_sequencer_h", this);
 endfunction
@@ -101,13 +104,37 @@ function void mac_env_c::connect_phase(uvm_phase phase);
       rs_agent_top_h.passive_agents[i].monitor_h.analysis_port.connect(coverage_h.rs_observed_imp);
     if (protocol_checker_h != null)
       rs_agent_top_h.passive_agents[i].monitor_h.analysis_port.connect(protocol_checker_h.rs_imp);
-    //rs_agent_top_h.passive_agents[i].monitor_h.analysis_port.connect(reference_model_h.rs_observed_imp);
+    // DUT-generated frames on the TX wire (e.g. PAUSE control frames) have no
+    // client origin; the ref model derives their expectation via write_rs_tx.
+    if (reference_model_h != null)
+      rs_agent_top_h.passive_agents[i].monitor_h.analysis_port.connect(
+          reference_model_h.rs_tx_observed_imp);
   end
 
   if (reference_model_h != null) begin
     reference_model_h.axi_expected_port.connect(scoreboard_h.axi_expected_fifo.analysis_export);
     reference_model_h.rs_expected_port.connect(scoreboard_h.rs_expected_fifo.analysis_export);
   end
+
+  // APB monitor traffic is the single passive source for RAL mirroring and
+  // reference-model configuration state.  The RAL frontdoor remains bound
+  // in the base test; this predictor keeps the mirror current for direct
+  // APB sequences as well.
+  if (apb_agent_top_h != null && apb_agent_top_h.active_agents.size() > 0) begin
+    if (ral_predictor_h != null) begin
+      ral_predictor_h.map = cfg_h.ral_h.get_default_map();
+      ral_predictor_h.adapter = cfg_h.ral_adapter_h;
+      apb_agent_top_h.active_agents[0].monitor_h.ap.connect(ral_predictor_h.bus_in);
+    end
+    if (reference_model_h != null)
+      apb_agent_top_h.active_agents[0].monitor_h.ap.connect(reference_model_h.apb_observed_imp);
+    if (coverage_h != null)
+      apb_agent_top_h.active_agents[0].monitor_h.ap.connect(coverage_h.apb_observed_imp);
+  end
+
+  if (scoreboard_h != null && reset_agent_top_h != null)
+    foreach (reset_agent_top_h.agents[i])
+      reset_agent_top_h.agents[i].monitor_h.analysis_port.connect(scoreboard_h.reset_imp);
 
   if (virtual_sequencer_h != null) begin
     if (axi_agent_top_h.active_agents.size() > 0)
