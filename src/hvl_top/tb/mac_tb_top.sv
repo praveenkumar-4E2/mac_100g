@@ -3,6 +3,7 @@
  *        reset, ticks, APB configuration, and the AXI4-Stream
  *        virtual interfaces handed to the UVM environment.
  */
+ `timescale 1ns/1ps
 module mac_tb_top;
   `include "uvm_macros.svh"
   import uvm_pkg::*;
@@ -29,10 +30,10 @@ module mac_tb_top;
   assign mac_rst = mac_reset_if_h.rst;
   assign apb_rst = apb_reset_if_h.rst;
 
-  // Bit-time ticks for the MAC TX/RX paths (1-cycle pulse every 4 mac_clk).
+  // At 195.3125 MHz, each 512-bit MAC cycle transfers 100 Gb/s.  The TX and
+  // RX timing consumers therefore advance once per mac_clk cycle.
   logic tx_tick;
   logic rx_tick;
-  logic [1:0] tick_cnt;
 
   //============================================================================
   // AXI4-Stream virtual interfaces (TX slave, RX master)
@@ -323,17 +324,17 @@ module mac_tb_top;
   end
 
   //============================================================================
-  // Bit-time tick generation: 1-cycle pulse every 4 mac_clk cycles
+  // 100 Gb/s tick generation: assert a timing advance every MAC cycle.
+  // Keep the tick registered and reset-quiet so all sequential consumers see
+  // a synchronous, single-domain enable.
   //============================================================================
   always @(posedge mac_clk or posedge mac_rst) begin
     if (mac_rst) begin
-      tick_cnt <= '0;
       tx_tick  <= 1'b0;
       rx_tick  <= 1'b0;
     end else begin
-      tick_cnt <= tick_cnt + 1'b1;
-      tx_tick  <= (tick_cnt == 2'd3);
-      rx_tick  <= (tick_cnt == 2'd3);
+      tx_tick  <= 1'b1;
+      rx_tick  <= 1'b1;
     end
   end
 

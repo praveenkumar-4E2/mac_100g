@@ -5,8 +5,7 @@ This MAC-local test layer follows the organizational pattern extracted from the 
 ```text
 test/
   mac_base_test.svh             shared test setup, reset/APB bootstrap
-  mac_sanity_test.svh           environment and reset-event sanity test
-  mac_payload_tests.svh         parameterized directed payload examples
+  mac_sanity_test.svh           randomized bidirectional TX/RX sanity test
   sequences/
     axi_sequences/axi_seq.sv    AXI4-Stream client-ingress stimulus
     rs_sequences/rs_seq.sv      RS line-ingress stimulus
@@ -18,7 +17,6 @@ test/
 
 `mac_virtual_seqr.sv` stays in `tb/`: it is environment infrastructure, not a test scenario.  The sequence files are compiled through `mac_test_pkg.sv` using the MAC Questa filelist's explicit test-layer include directories.  No AXI source, package, include directory, or testlist is used.
 
-The supplied examples are `mac_sanity_test_c`, `mac_tx_payload_min_test_c`,
-`mac_tx_payload_50_test_c`, and `mac_tx_payload_64_test_c`. New tests extend
-`mac_base_test_c`; payload variations extend `mac_payload_base_test_c` and only
-override the payload length.
+The supplied traffic sanity test is `mac_sanity_test_c`; it sends ten random,
+valid transactions through each MAC direction. New tests extend
+`mac_base_test_c` and configure only the agents and scenario they require.

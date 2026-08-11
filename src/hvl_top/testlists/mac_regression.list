@@ -1,13 +1,6 @@
-# MAC regression: infrastructure sanity followed by directed, end-to-end
-# client-ingress payload checks.  Each test is MAC-local and self-terminates.
+# MAC regression: randomized bidirectional sanity followed by directed tests.
+# Each test is MAC-local and self-terminates.
 mac_sanity_test_c
-mac_tx_payload_min_test_c
-mac_tx_payload_50_test_c
-mac_tx_payload_64_test_c
-mac_tx_vlan_test_c
-mac_tx_max_payload_test_c
-mac_rx_basic_test_c
 mac_register_access_test_c
-mac_parallel_tx_rx_test_c
 mac_pause_rx_test_c
 mac_pause_tx_test_c

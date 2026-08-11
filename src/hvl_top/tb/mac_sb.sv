@@ -41,7 +41,7 @@ class mac_scoreboard_c extends uvm_scoreboard;
   extern function void compare_rx(axi_item_c expected, axi_item_c actual);
   extern function void write_reset_sb(mac_reset_item_c reset_item);
   extern function void flush_pending(string reason);
-  extern function bit has_unmatched();
+  extern function bit  has_unmatched();
   extern function void check_unmatched_timeout();
   extern function void report_phase(uvm_phase phase);
   extern function void check_phase(uvm_phase phase);
