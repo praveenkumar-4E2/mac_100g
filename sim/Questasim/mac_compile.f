@@ -2,6 +2,7 @@
 +incdir+../../src/hdl_top/interfaces
 +incdir+../../src/hvl_top/tb
 +incdir+../../src/hvl_top/test
++incdir+../../src/hvl_top/test/sequences
 +incdir+../../src/hvl_top/test/sequences/axi_sequences
 +incdir+../../src/hvl_top/test/sequences/rs_sequences
 +incdir+../../src/hvl_top/test/virtual_sequences
