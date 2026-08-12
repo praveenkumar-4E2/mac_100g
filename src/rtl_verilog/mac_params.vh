@@ -1,0 +1,10 @@
+`ifndef MAC_PARAMS_VH
+`define MAC_PARAMS_VH
+`define AXIS_DATA_WIDTH 512
+`define AXIS_KEEP_WIDTH 64
+`define MAC_ADDR_WIDTH 48
+`define CRC_WIDTH 32
+`define MAC_MIN_FRAME_OCTETS 64
+`define MAC_HEADER_OCTETS 14
+`define MAC_FCS_OCTETS 4
+`endif
