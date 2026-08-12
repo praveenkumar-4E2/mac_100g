@@ -41,7 +41,10 @@ WORK      = work
 TOP       = mac_tb_top
 OPT_TOP   = $(TOP)_opt
 FILELIST  = mac_compile.f
-WAVE_DO   = mac_waves.do
+WAVE_DO   = waves.do
+# The .exe name works in both Windows shells and WSL (which exposes Windows
+# executables through its inherited PATH).
+VISUALIZER ?= visualizer.exe
 SOURCE_DIR ?= ../../src
 LOG_DIR ?= ../../logs
 RESULT_DIR ?= ../../results
@@ -71,13 +74,11 @@ ifndef SEED
 override SEED = random
 endif
 
-# Safety net for unattended runs.  Normal tests end as soon as all UVM
-# objections are dropped; a stalled test is converted into a UVM timeout
-# failure, exits batch simulation, and lets regression continue with the
-# next test.  Questa UVM 1.1d parses this plusarg in the MAC top-level's
-# 1ns timebase, so 1000000 is 1 ms. Override with a numeric ns value, e.g.
-# `make regression UVM_TIMEOUT=50000000` for 50 ms.
-UVM_TIMEOUT ?= 1000000
+# No global UVM phase timeout is forced.  A caller may opt in explicitly,
+# for example: make run UVM_TIMEOUT=50000000
+UVM_TIMEOUT ?=
+comma := ,
+UVM_TIMEOUT_PLUSARG = $(if $(strip $(UVM_TIMEOUT)),+UVM_TIMEOUT=$(UVM_TIMEOUT)$(comma)YES)
 
 ## Every test run gets a timestamped test-named folder.  This keeps
 ## logs/waveforms/coverage from different tests from overwriting each other.
@@ -94,6 +95,14 @@ RUN_WLF    = $(RUN_DIR)/waveform.wlf
 # Transaction trace records are appended to the normal Questa/UVM test log.
 TXN_LOG    = $(RUN_LOG)
 RESULT_FILE ?= $(RESULT_DIR)/tests/$(RUN_ID).json
+
+## --------------------------- Debug / schematic config --------------------
+# GUI targets require Questa with signal access.  The curated wave script
+# groups clocks/reset, APB3, AXI4-Stream client ports, and native MAC/RS ports.
+SCHEMATIC_DIR ?= $(RESULT_DIR)/schematic
+YOSYS ?= yosys
+DOT ?= dot
+PURE_RTL_FILES = $(shell find ../../src/rtl_verilog -name '*.v' -print)
 
 ## --------------------------- Coverage config -----------------------------
 ## Coverage flags live ONLY here — the standard flow above stays
@@ -123,9 +132,9 @@ REGRESSION_RESULTS_DIR ?= $(RESULT_DIR)/regression/$(REGRESSION_ID)/tests
 CLEAN_TARGETS = $(WORK) transcript vsim.wlf *.log *.ucdb $(OPT_TOP) run_* $(LOG_DIR) $(RESULT_DIR) $(COVERAGE_DIR)
 
 .PHONY: help all lib \
-        check compile compile_opt run run_opt gui gui_opt \
+        check compile compile_opt run run_opt gui gui_opt gui_waves gui_waves_opt visualizer visualizer_wlf \
         compile_cov compile_opt_cov run_cov run_opt_cov gui_cov cover_report coverage smoke run_existing \
-        audit regression clean
+        audit regression schematic schematic_svg clean
 
 ## --------------------------- Default / Help ------------------------------
 
@@ -157,7 +166,16 @@ help:
 	@echo "  make cover_report TEST=mac_sanity_test_c   # HTML report afterwards";
 	@echo "";
 	@echo "I want to open the Questa GUI to debug:";
-	@echo "  make gui TEST=mac_sanity_test_c";
+	@echo "  make gui_waves TEST=mac_sanity_test_c";
+	@echo "  (loads waves.do with complete APB3/AXI4-Stream/MAC-RS groups)";
+	@echo "";
+	@echo "I want Visualizer with the live design and complete wave view:";
+	@echo "  make visualizer TEST=mac_sanity_test_c";
+	@echo "  make visualizer_wlf TEST=mac_sanity_test_c  # inspect a completed run";
+	@echo "";
+	@echo "I want pure-RTL schematic export files (WSL/Yosys):";
+	@echo "  make schematic      # rtl_top.json and rtl_top.dot";
+	@echo "  make schematic_svg  # also creates rtl_top.svg when Graphviz is installed";
 	@echo "";
 	@echo "I want to run a whole list of tests (regression):";
 	@echo "  make regression TESTLIST=../../src/hvl_top/testlists/mac_regression.list";
@@ -175,6 +193,10 @@ help:
 	@echo "  run_opt        - batch-mode simulation (optimized)";
 	@echo "  gui            - open Questa GUI (unoptimized)";
 	@echo "  gui_opt        - open Questa GUI (optimized)";
+	@echo "  gui_waves      - open Questa GUI with the complete curated waveform view";
+	@echo "  gui_waves_opt  - optimized GUI with the complete curated waveform view";
+	@echo "  visualizer     - launch Questa Visualizer for live debug with curated waves";
+	@echo "  visualizer_wlf - open the saved optimized-run WLF in Visualizer";
 	@echo "  compile_cov    - compile with coverage instrumentation";
 	@echo "  compile_opt_cov- compile + optimize, with coverage";
 	@echo "  run_cov        - batch-mode sim + save coverage";
@@ -182,10 +204,12 @@ help:
 	@echo "  gui_cov        - GUI with coverage enabled";
 	@echo "  cover_report   - build HTML coverage report for TEST";
 	@echo "  regression     - run every test listed in TESTLIST";
+	@echo "  schematic      - Yosys JSON/DOT schematic for pure rtl_top (WSL/Linux)";
+	@echo "  schematic_svg  - generate an SVG schematic when Graphviz dot is installed";
 	@echo "  clean          - remove all generated files";
 	@echo "";
 	@echo "Variables you can override (VAR=value after any target):";
-	@echo "  SIMULATOR=$(SIMULATOR)  TEST=$(TEST)  VERBOSITY=$(VERBOSITY)  SEED=$(SEED)  UVM_TIMEOUT=$(UVM_TIMEOUT)";
+	@echo "  SIMULATOR=$(SIMULATOR)  TEST=$(TEST)  VERBOSITY=$(VERBOSITY)  SEED=$(SEED)";
 	@echo "  PLUSARGS=$(PLUSARGS)  DEFINES=$(DEFINES)  SOURCE_DIR=$(SOURCE_DIR)";
 	@echo "  LOG_DIR=$(LOG_DIR)  RESULT_DIR=$(RESULT_DIR)  COVERAGE_DIR=$(COVERAGE_DIR)";
 	@echo "  ARTIFACT_ROOT=$(ARTIFACT_ROOT)  RUN_TIMESTAMP=$(RUN_TIMESTAMP)";
@@ -232,7 +256,7 @@ run_existing:
 	mkdir -p $(RUN_DIR)
 	@start_epoch=$$(date +%s); \
 	$(VSIM) $(VSIM_BATCH_OPTS) $(WORK).$(TOP) \
-	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) +UVM_TIMEOUT=$(UVM_TIMEOUT),YES +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
+	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) $(UVM_TIMEOUT_PLUSARG) +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
 	  -l $(RUN_LOG) -wlf $(RUN_WLF) \
 	  -do "log -r /*; run -all; exit"; sim_status=$$?; \
 	$(PYTHON) mac_result_summary.py capture --test $(TEST) --seed $(SEED) --log $(RUN_LOG) --result $(RESULT_FILE) --start-epoch $$start_epoch; result_status=$$?; \
@@ -246,7 +270,7 @@ smoke:
 run_opt: compile_opt
 	mkdir -p $(RUN_DIR)
 	$(VSIM) -c $(OPT_TOP) \
-	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) +UVM_TIMEOUT=$(UVM_TIMEOUT),YES +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
+	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) $(UVM_TIMEOUT_PLUSARG) +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
 	  -l $(RUN_LOG) -wlf $(RUN_WLF) \
 	  -do "log -r /*; run -all; exit"
 	@echo ">> Test '$(TEST)' finished. Log: $(RUN_LOG)"
@@ -255,15 +279,40 @@ run_opt: compile_opt
 gui: compile
 	mkdir -p $(RUN_DIR)
 	$(VSIM) $(VSIM_OPTS) $(WORK).$(TOP) \
-	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) +UVM_TIMEOUT=$(UVM_TIMEOUT),YES +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
+	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) $(UVM_TIMEOUT_PLUSARG) +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
 	  -l $(RUN_LOG) -do "do $(WAVE_DO)"
 
 ## Interactive GUI, optimized
 gui_opt: compile_opt
 	mkdir -p $(RUN_DIR)
 	$(VSIM) $(OPT_TOP) \
-	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) +UVM_TIMEOUT=$(UVM_TIMEOUT),YES +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
+	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) $(UVM_TIMEOUT_PLUSARG) +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
 	  -l $(RUN_LOG) -do "do $(WAVE_DO)"
+
+## Interactive GUI with the complete curated waveform layout and saved WLF.
+gui_waves: compile
+	mkdir -p $(RUN_DIR)
+	$(VSIM) $(VSIM_OPTS) $(WORK).$(TOP) \
+	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) $(UVM_TIMEOUT_PLUSARG) +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
+	  -l $(RUN_LOG) -wlf $(RUN_WLF) -do "do $(WAVE_DO)"
+
+gui_waves_opt: compile_opt
+	mkdir -p $(RUN_DIR)
+	$(VSIM) $(OPT_TOP) \
+	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) $(UVM_TIMEOUT_PLUSARG) +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
+	  -l $(RUN_LOG) -wlf $(RUN_WLF) -do "do $(WAVE_DO)"
+
+## Live Visualizer session.  It keeps source cross-probing, schematic/debug
+## views, and the same curated complete waveform layout available together.
+visualizer: compile
+	mkdir -p $(RUN_DIR)
+	$(VSIM) -visualizer $(VSIM_OPTS) $(WORK).$(TOP) \
+	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) $(UVM_TIMEOUT_PLUSARG) +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
+	  -l $(RUN_LOG) -wlf $(RUN_WLF) -do "do $(WAVE_DO)"
+
+## Post-run inspection without rerunning the optimized simulation.
+visualizer_wlf: run_opt
+	$(VISUALIZER) -wavefile $(RUN_WLF) -do $(WAVE_DO) -l $(RUN_DIR)/visualizer.log
 
 ## --------------------------- Coverage flow --------------------------------
 
@@ -279,7 +328,7 @@ compile_opt_cov: compile_cov
 run_cov: compile_cov
 	mkdir -p $(RUN_DIR)
 	$(VSIM) $(VSIM_COV_OPTS) $(WORK).$(TOP) \
-	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) +UVM_TIMEOUT=$(UVM_TIMEOUT),YES +MAC_TXN_LOG=$(TXN_LOG) +MAC_FUNCTIONAL_COVERAGE $(PLUSARGS) -sv_seed $(SEED) \
+	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) $(UVM_TIMEOUT_PLUSARG) +MAC_TXN_LOG=$(TXN_LOG) +MAC_FUNCTIONAL_COVERAGE $(PLUSARGS) -sv_seed $(SEED) \
 	  -l $(RUN_LOG)
 	$(PYTHON) mac_result_summary.py capture --test $(TEST) --seed $(SEED) --log $(RUN_LOG) --result $(RESULT_FILE)
 	@echo ">> Coverage saved: $(COV_DB)"
@@ -288,7 +337,7 @@ run_cov: compile_cov
 run_opt_cov: compile_opt_cov
 	mkdir -p $(RUN_DIR)
 	$(VSIM) $(VSIM_COV_OPTS) $(OPT_TOP) \
-	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) +UVM_TIMEOUT=$(UVM_TIMEOUT),YES +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
+	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) $(UVM_TIMEOUT_PLUSARG) +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
 	  -l $(RUN_LOG)
 	@echo ">> Coverage saved: $(COV_DB)"
 
@@ -296,7 +345,7 @@ run_opt_cov: compile_opt_cov
 gui_cov: compile_cov
 	mkdir -p $(RUN_DIR)
 	$(VSIM) $(VSIM_OPTS) -coverage $(WORK).$(TOP) \
-	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) +UVM_TIMEOUT=$(UVM_TIMEOUT),YES +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
+	  +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) $(UVM_TIMEOUT_PLUSARG) +MAC_TXN_LOG=$(TXN_LOG) $(PLUSARGS) -sv_seed $(SEED) \
 	  -l $(RUN_LOG)
 
 ## Generate an HTML coverage report for the current TEST
@@ -317,6 +366,20 @@ coverage_merge:
 	$(VCOVER) merge $(COV_MERGED_DB) $(COV_INPUTS)
 	$(VCOVER) report -html $(COV_MERGED_DB) -htmldir $(COV_MERGED_HTML) -details
 	@echo ">> Merged coverage report: $(COV_MERGED_HTML)/index.html"
+
+## --------------------------- Pure-RTL schematic export -------------------
+## These targets deliberately read only src/rtl_verilog plus rtl_top.v.
+## Run from WSL/Linux with Yosys installed; Questa/UVM sources are excluded.
+schematic:
+	@command -v $(YOSYS) >/dev/null 2>&1 || { echo "ERROR: Yosys is required. In WSL: sudo apt install yosys graphviz"; exit 1; }
+	mkdir -p $(SCHEMATIC_DIR)
+	$(YOSYS) -p "read_verilog -I../../src/rtl_verilog $(PURE_RTL_FILES); hierarchy -check -top rtl_top; proc; opt; write_json $(SCHEMATIC_DIR)/rtl_top.json; show -format dot -prefix $(SCHEMATIC_DIR)/rtl_top rtl_top"
+	@echo ">> Schematic files: $(SCHEMATIC_DIR)/rtl_top.json and $(SCHEMATIC_DIR)/rtl_top.dot"
+
+schematic_svg: schematic
+	@command -v $(DOT) >/dev/null 2>&1 || { echo "ERROR: Graphviz dot is required. In WSL: sudo apt install graphviz"; exit 1; }
+	$(DOT) -Tsvg $(SCHEMATIC_DIR)/rtl_top.dot -o $(SCHEMATIC_DIR)/rtl_top.svg
+	@echo ">> SVG schematic: $(SCHEMATIC_DIR)/rtl_top.svg"
 
 ## --------------------------- Regression ------------------------------------
 
