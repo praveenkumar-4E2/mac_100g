@@ -8,8 +8,7 @@ class mac_virtual_sequencer_c extends uvm_sequencer #(uvm_sequence_item);
   mac_reset_sequencer_c mac_reset_seqr_h;
   mac_reset_sequencer_c apb_reset_seqr_h;
 
-  extern function new(string name = "mac_virtual_sequencer_c",
-                      uvm_component parent = null);
+  extern function new(string name = "mac_virtual_sequencer_c", uvm_component parent = null);
 endclass
 
 function mac_virtual_sequencer_c::new(string name = "mac_virtual_sequencer_c",

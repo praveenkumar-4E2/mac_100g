@@ -9,15 +9,13 @@
 class rs_sequence_c extends uvm_sequence #(frame_xtn_c);
   `uvm_object_utils(rs_sequence_c)
 
-  rand int         num_frames;
-  frame_xtn_c      frame_h;
-  rs_agent_cfg_c   cfg_h;
+  rand int       num_frames;
+  frame_xtn_c    frame_h;
+  rs_agent_cfg_c cfg_h;
 
   // Default number of frames driven per sequence run; can be
   // overridden by tests via configuration.
-  constraint c_num_frames {
-    num_frames inside {[1:100]};
-  }
+  constraint c_num_frames {num_frames inside {[1 : 100]};}
 
   extern function new(string name = "rs_sequence_c");
   extern task body();
@@ -46,14 +44,13 @@ endfunction
 task rs_sequence_c::body();
   // UTL-099: look up the config from the starting sequencer's hierarchy
   // rather than a null-context wildcard lookup.
-  if (!uvm_config_db#(rs_agent_cfg_c)::get(m_sequencer, "",
-                                            "rs_agent_cfg", cfg_h)) begin
+  if (!uvm_config_db#(rs_agent_cfg_c)::get(m_sequencer, "", "rs_agent_cfg", cfg_h)) begin
     `uvm_fatal(get_type_name(),
                "uvm_config_db#(rs_agent_cfg_c)::get cannot find resource rs agt config")
   end
 
   // Default frame count; tests that constrain num_frames keep theirs.
-  if (!randomize() with { soft num_frames == cfg_h.num_frames_default; }) begin
+  if (!randomize() with {soft num_frames == cfg_h.num_frames_default;}) begin
     `uvm_fatal(get_type_name(), "Randomization of num_frames failed")
   end
 
@@ -72,8 +69,8 @@ task rs_sequence_c::body();
       end
     end else begin
       if (!frame_h.randomize() with {
-            crc_error       == 0;
-            length_error    == 0;
+            crc_error == 0;
+            length_error == 0;
             alignment_error == 0;
             soft payload.size() inside {[cfg_h.min_payload_len : cfg_h.max_payload_len]};
             soft ether_type > 16'h0600;

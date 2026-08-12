@@ -14,8 +14,8 @@ class mac_sanity_test_c extends mac_base_test_c;
   // This package is compiled at picosecond precision.  A 195.3125 MHz
   // clock therefore has a 5,120 ps period, which sustains 100 Gb/s across
   // the 512-bit MAC data path.
-  localparam time         MAC_CLK_PERIOD_PS     = 5_120;
-  localparam time         MAC_CLK_TOLERANCE_PS  = 1;
+  localparam time MAC_CLK_PERIOD_PS = 5_120;
+  localparam time MAC_CLK_TOLERANCE_PS = 1;
 
   extern function new(string name = "mac_sanity_test_c", uvm_component parent = null);
   extern virtual task run_stimulus(uvm_phase phase);
@@ -43,14 +43,15 @@ task mac_sanity_test_c::verify_mac_clock_rate();
     observed_period = $time - previous_edge;
     if ((observed_period < (MAC_CLK_PERIOD_PS - MAC_CLK_TOLERANCE_PS)) ||
         (observed_period > (MAC_CLK_PERIOD_PS + MAC_CLK_TOLERANCE_PS)))
-      `uvm_fatal("MAC_SANITY",
-                 $sformatf("MAC clock period %0t is outside 100G tolerance around %0t",
-                           observed_period, MAC_CLK_PERIOD_PS))
+      `uvm_fatal("MAC_SANITY", $sformatf(
+                 "MAC clock period %0t is outside 100G tolerance around %0t",
+                 observed_period,
+                 MAC_CLK_PERIOD_PS
+                 ))
     previous_edge = $time;
   end
   `uvm_info("MAC_SANITY",
-            "Verified free-running 195.3125 MHz MAC clock (512 bits/cycle = 100 Gb/s)",
-            UVM_NONE)
+            "Verified free-running 195.3125 MHz MAC clock (512 bits/cycle = 100 Gb/s)", UVM_NONE)
 endtask
 
 task mac_sanity_test_c::run_stimulus(uvm_phase phase);
@@ -63,8 +64,8 @@ task mac_sanity_test_c::run_stimulus(uvm_phase phase);
   bit tx_parallel_timed_out;
   bit rx_parallel_timed_out;
 
-  if (env_h == null || env_h.apb_agent_top_h == null ||
-      env_h.virtual_sequencer_h == null || env_cfg_h.ral_h == null)
+  if (env_h == null || env_h.apb3_agent_top_h == null || env_h.virtual_sequencer_h == null ||
+      env_cfg_h.ral_h == null)
     `uvm_fatal("MAC_SANITY", "MAC environment, APB agent, RAL, or virtual sequencer was not built")
   if (!tb_cfg_h.config_done || tb_cfg_h.reset_event != MAC_RESET_EVENT_CONFIG_DONE)
     `uvm_fatal("MAC_SANITY", "MAC reset and APB bootstrap did not complete")
@@ -73,47 +74,49 @@ task mac_sanity_test_c::run_stimulus(uvm_phase phase);
 
   tx_only_seq_h = mac_sanity_tx_sequence_c::type_id::create("sanity_tx_only_seq_h");
   tx_only_seq_h.num_transactions = TX_TRANSACTION_COUNT;
-  tx_only_seq_h.start(env_h.axi_agent_top_h.active_agents[0].sequencer_h);
+  tx_only_seq_h.start(env_h.axi4_stream_agent_top_h.active_agents[0].sequencer_h);
   mac_wait_utils_c::wait_for_count_at_least(
       TX_TRANSACTION_COUNT,
-      env_h.rs_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt,
-      mac_tx_vif, MAC_COMPLETION_TIMEOUT_NS, tx_only_timed_out);
+      env_h.mac_rs_stream_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt, mac_tx_vif,
+      MAC_COMPLETION_TIMEOUT_NS, tx_only_timed_out);
 
   rx_only_seq_h = mac_sanity_rx_sequence_c::type_id::create("sanity_rx_only_seq_h");
   rx_only_seq_h.num_transactions = RX_TRANSACTION_COUNT;
-  rx_only_seq_h.start(env_h.rs_agent_top_h.active_agents[0].sequencer_h);
+  rx_only_seq_h.start(env_h.mac_rs_stream_agent_top_h.active_agents[0].sequencer_h);
   mac_wait_utils_c::wait_for_axi_count_at_least(
       RX_TRANSACTION_COUNT,
-      env_h.axi_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt,
-      axi_rx_vif, MAC_COMPLETION_TIMEOUT_NS, rx_only_timed_out);
+      env_h.axi4_stream_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt, axi_rx_vif,
+      MAC_COMPLETION_TIMEOUT_NS, rx_only_timed_out);
 
   tx_parallel_seq_h = mac_sanity_tx_sequence_c::type_id::create("sanity_tx_parallel_seq_h");
   rx_parallel_seq_h = mac_sanity_rx_sequence_c::type_id::create("sanity_rx_parallel_seq_h");
   tx_parallel_seq_h.num_transactions = TX_TRANSACTION_COUNT;
   rx_parallel_seq_h.num_transactions = RX_TRANSACTION_COUNT;
   fork
-    tx_parallel_seq_h.start(env_h.axi_agent_top_h.active_agents[0].sequencer_h);
-    rx_parallel_seq_h.start(env_h.rs_agent_top_h.active_agents[0].sequencer_h);
+    tx_parallel_seq_h.start(env_h.axi4_stream_agent_top_h.active_agents[0].sequencer_h);
+    rx_parallel_seq_h.start(env_h.mac_rs_stream_agent_top_h.active_agents[0].sequencer_h);
   join
   mac_wait_utils_c::wait_for_count_at_least(
       2 * TX_TRANSACTION_COUNT,
-      env_h.rs_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt,
-      mac_tx_vif, MAC_COMPLETION_TIMEOUT_NS, tx_parallel_timed_out);
+      env_h.mac_rs_stream_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt, mac_tx_vif,
+      MAC_COMPLETION_TIMEOUT_NS, tx_parallel_timed_out);
   mac_wait_utils_c::wait_for_axi_count_at_least(
       2 * RX_TRANSACTION_COUNT,
-      env_h.axi_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt,
-      axi_rx_vif, MAC_COMPLETION_TIMEOUT_NS, rx_parallel_timed_out);
+      env_h.axi4_stream_agent_top_h.passive_agents[0].monitor_h.mon_rcvd_xtn_cnt, axi_rx_vif,
+      MAC_COMPLETION_TIMEOUT_NS, rx_parallel_timed_out);
 
-  if (tx_only_timed_out || rx_only_timed_out ||
-      tx_parallel_timed_out || rx_parallel_timed_out)
-    `uvm_error("MAC_SANITY",
-               $sformatf("traffic completion failed: tx_only=%0b rx_only=%0b tx_parallel=%0b rx_parallel=%0b",
-                         tx_only_timed_out, rx_only_timed_out,
-                         tx_parallel_timed_out, rx_parallel_timed_out))
+  if (tx_only_timed_out || rx_only_timed_out || tx_parallel_timed_out || rx_parallel_timed_out)
+    `uvm_error("MAC_SANITY", $sformatf(
+               "traffic completion failed: tx_only=%0b rx_only=%0b tx_parallel=%0b rx_parallel=%0b",
+               tx_only_timed_out,
+               rx_only_timed_out,
+               tx_parallel_timed_out,
+               rx_parallel_timed_out
+               ))
   else
     `uvm_info("MAC_SANITY",
               "PASS: TX-only(10), RX-only(15), and concurrent TX(10)/RX(15) traffic completed",
               UVM_NONE)
 endtask
 
-`endif // MAC_SANITY_TEST_SVH
+`endif  // MAC_SANITY_TEST_SVH

@@ -8,14 +8,12 @@
 class mac_register_access_test_c extends mac_base_test_c;
   `uvm_component_utils(mac_register_access_test_c)
 
-  extern function new(string name = "mac_register_access_test_c",
-                      uvm_component parent = null);
+  extern function new(string name = "mac_register_access_test_c", uvm_component parent = null);
   extern virtual function void configure_test();
   extern virtual task run_stimulus(uvm_phase phase);
   extern task apb_write(bit [apb_transfer_t::ADDR_WIDTH-1:0] addr,
                         bit [apb_transfer_t::DATA_WIDTH-1:0] data);
-  extern task apb_read(bit [apb_transfer_t::ADDR_WIDTH-1:0] addr,
-                       bit expect_slverr = 1'b0);
+  extern task apb_read(bit [apb_transfer_t::ADDR_WIDTH-1:0] addr, bit expect_slverr = 1'b0);
   extern task apb_read_expect(bit [apb_transfer_t::ADDR_WIDTH-1:0] addr,
                               bit [apb_transfer_t::DATA_WIDTH-1:0] expected,
                               bit [apb_transfer_t::DATA_WIDTH-1:0] mask = '1);
@@ -32,9 +30,8 @@ function void mac_register_access_test_c::configure_test();
   // retain normal protocol checking for this legal-address access sweep.
 endfunction
 
-task mac_register_access_test_c::apb_write(
-    input bit [apb_transfer_t::ADDR_WIDTH-1:0] addr,
-    input bit [apb_transfer_t::DATA_WIDTH-1:0] data);
+task mac_register_access_test_c::apb_write(input bit [apb_transfer_t::ADDR_WIDTH-1:0] addr,
+                                           input bit [apb_transfer_t::DATA_WIDTH-1:0] data);
   apb_write_sequence_c seq_h;
   seq_h = apb_write_sequence_c::type_id::create($sformatf("reg_wr_%h", addr));
   seq_h.m_addr = addr;
@@ -42,9 +39,8 @@ task mac_register_access_test_c::apb_write(
   seq_h.start(env_h.virtual_sequencer_h.apb_seqr_h);
 endtask
 
-task mac_register_access_test_c::apb_read(
-    input bit [apb_transfer_t::ADDR_WIDTH-1:0] addr,
-    input bit expect_slverr = 1'b0);
+task mac_register_access_test_c::apb_read(input bit [apb_transfer_t::ADDR_WIDTH-1:0] addr,
+                                          input bit expect_slverr = 1'b0);
   apb_read_sequence_c seq_h;
   seq_h = apb_read_sequence_c::type_id::create($sformatf("reg_rd_%h", addr));
   seq_h.m_addr = addr;
@@ -62,25 +58,40 @@ task mac_register_access_test_c::apb_read_expect(
   seq_h.m_addr = addr;
   seq_h.start(env_h.virtual_sequencer_h.apb_seqr_h);
   if ((seq_h.m_rdata & mask) !== (expected & mask))
-    `uvm_error("MAC_RAL_READBACK",
-               $sformatf("APB readback mismatch addr=%h got=%h expected=%h mask=%h",
-                         addr, seq_h.m_rdata, expected, mask))
+    `uvm_error("MAC_RAL_READBACK", $sformatf(
+               "APB readback mismatch addr=%h got=%h expected=%h mask=%h",
+               addr,
+               seq_h.m_rdata,
+               expected,
+               mask
+               ))
 endtask
 
 task mac_register_access_test_c::run_stimulus(uvm_phase phase);
   uvm_status_e ral_status;
   uvm_reg_data_t ral_data;
   bit [15:0] fixed_addrs[$] = '{
-    reg_map_pkg::REG_VERSION, reg_map_pkg::REG_GLOBAL_CONTROL,
-    reg_map_pkg::REG_MAC_ADDR_LOW, reg_map_pkg::REG_MAC_ADDR_HIGH,
-    reg_map_pkg::REG_MAX_CLIENT_DATA, reg_map_pkg::REG_OVERSIZE_CONTROL,
-    reg_map_pkg::REG_PAUSE_CONTROL, reg_map_pkg::REG_PAUSE_STATUS,
-    reg_map_pkg::REG_RX_STATUS, reg_map_pkg::REG_TX_STATUS,
-    reg_map_pkg::REG_INTERRUPT_ENABLE, reg_map_pkg::REG_INTERRUPT_STATUS,
-    reg_map_pkg::REG_RX_INVALID_COUNT, reg_map_pkg::REG_RX_OVERSIZE_COUNT,
-    reg_map_pkg::REG_RX_UNSUPPORTED_COUNT, reg_map_pkg::REG_PAUSE_TX_CONFIG,
-    reg_map_pkg::REG_MAC_SPEED_CONFIG, reg_map_pkg::REG_MAX_FRAME_SIZE,
-    reg_map_pkg::REG_MIN_FRAME_SIZE, reg_map_pkg::REG_FRAME_SIZE_STATUS};
+      reg_map_pkg::REG_VERSION,
+      reg_map_pkg::REG_GLOBAL_CONTROL,
+      reg_map_pkg::REG_MAC_ADDR_LOW,
+      reg_map_pkg::REG_MAC_ADDR_HIGH,
+      reg_map_pkg::REG_MAX_CLIENT_DATA,
+      reg_map_pkg::REG_OVERSIZE_CONTROL,
+      reg_map_pkg::REG_PAUSE_CONTROL,
+      reg_map_pkg::REG_PAUSE_STATUS,
+      reg_map_pkg::REG_RX_STATUS,
+      reg_map_pkg::REG_TX_STATUS,
+      reg_map_pkg::REG_INTERRUPT_ENABLE,
+      reg_map_pkg::REG_INTERRUPT_STATUS,
+      reg_map_pkg::REG_RX_INVALID_COUNT,
+      reg_map_pkg::REG_RX_OVERSIZE_COUNT,
+      reg_map_pkg::REG_RX_UNSUPPORTED_COUNT,
+      reg_map_pkg::REG_PAUSE_TX_CONFIG,
+      reg_map_pkg::REG_MAC_SPEED_CONFIG,
+      reg_map_pkg::REG_MAX_FRAME_SIZE,
+      reg_map_pkg::REG_MIN_FRAME_SIZE,
+      reg_map_pkg::REG_FRAME_SIZE_STATUS
+  };
 
   foreach (fixed_addrs[i]) begin
     apb_write(fixed_addrs[i], 32'h0000_0000);
@@ -94,26 +105,24 @@ task mac_register_access_test_c::run_stimulus(uvm_phase phase);
   end
 
   // Immutable identification register and reset-visible configuration.
-  apb_read_expect(reg_map_pkg::REG_VERSION,        32'h4150_4231);
+  apb_read_expect(reg_map_pkg::REG_VERSION, 32'h4150_4231);
   // Confirm the RAL frontdoor is bound to the MAC APB sequencer, rather than
   // merely constructing an address map that no test can execute.
-  ral_h.registers["version"].read(ral_status, ral_data, UVM_FRONTDOOR,
-                                  ral_h.default_map);
+  ral_h.registers["version"].read(ral_status, ral_data, UVM_FRONTDOOR, ral_h.default_map);
   if (ral_status != UVM_IS_OK || ral_data != 32'h4150_4231)
-    `uvm_error("MAC_RAL_FRONTDOOR",
-               $sformatf("RAL version read failed status=%s data=%h",
-                         ral_status.name(), ral_data))
+    `uvm_error("MAC_RAL_FRONTDOOR", $sformatf(
+               "RAL version read failed status=%s data=%h", ral_status.name(), ral_data))
 
   // Architecturally writable configuration registers.  Check only defined
   // fields where the implementation deliberately reserves upper bits.
   apb_write(reg_map_pkg::REG_GLOBAL_CONTROL, 32'h0000_00D5);
   apb_read_expect(reg_map_pkg::REG_GLOBAL_CONTROL, 32'h0000_00D5);
   apb_read_expect(reg_map_pkg::REG_OVERSIZE_CONTROL, 32'h0000_0040, 32'h0000_0040);
-  apb_read_expect(reg_map_pkg::REG_PAUSE_CONTROL,    32'h0000_0010, 32'h0000_0030);
+  apb_read_expect(reg_map_pkg::REG_PAUSE_CONTROL, 32'h0000_0010, 32'h0000_0030);
 
-  apb_write(reg_map_pkg::REG_MAC_ADDR_LOW,  32'h89AB_CDEF);
+  apb_write(reg_map_pkg::REG_MAC_ADDR_LOW, 32'h89AB_CDEF);
   apb_write(reg_map_pkg::REG_MAC_ADDR_HIGH, 32'h0000_4567);
-  apb_read_expect(reg_map_pkg::REG_MAC_ADDR_LOW,  32'h89AB_CDEF);
+  apb_read_expect(reg_map_pkg::REG_MAC_ADDR_LOW, 32'h89AB_CDEF);
   apb_read_expect(reg_map_pkg::REG_MAC_ADDR_HIGH, 32'h0000_4567, 32'h0000_FFFF);
 
   apb_write(reg_map_pkg::REG_MAX_CLIENT_DATA, 32'h0000_05DC);
@@ -139,10 +148,9 @@ task mac_register_access_test_c::run_stimulus(uvm_phase phase);
     apb_write(reg_map_pkg::group_low_addr(i), 32'hA5A5_0000 + i);
     apb_write(reg_map_pkg::group_high_addr(i), 32'h0001_0000 + i);
     apb_read_expect(reg_map_pkg::group_low_addr(i), 32'hA5A5_0000 + i);
-    apb_read_expect(reg_map_pkg::group_high_addr(i), 32'h0001_0000 + i,
-                    32'h0001_FFFF);
+    apb_read_expect(reg_map_pkg::group_high_addr(i), 32'h0001_0000 + i, 32'h0001_FFFF);
   end
   `uvm_info("MAC_RAL_ACCESS", "PASS: legal APB map sweep completed", UVM_NONE)
 endtask
 
-`endif // MAC_REGISTER_ACCESS_TEST_SVH
+`endif  // MAC_REGISTER_ACCESS_TEST_SVH

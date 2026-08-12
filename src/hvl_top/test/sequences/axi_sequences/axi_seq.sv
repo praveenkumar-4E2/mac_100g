@@ -1,4 +1,4 @@
-  /**
+/**
  * @brief MAC Master TX Base Sequence.
  *
  * Generates MAC transmit transactions and sends them to the
@@ -9,14 +9,12 @@ class axi_sequence_c extends uvm_sequence #(axi_item_c);
   `uvm_object_utils(axi_sequence_c)
 
   rand int        num_tx;
-  axi_item_c axi_item_h;
+  axi_item_c      axi_item_h;
   axi_agent_cfg_c cfg_h;
 
   // Default number of frames driven per sequence run; can be
   // overridden by tests via configuration.
-  constraint c_num_tx {
-    num_tx inside {[1:100]};
-  }
+  constraint c_num_tx {num_tx inside {[1 : 100]};}
 
   extern function new(string name = "axi_sequence_c");
   extern task body();
@@ -45,14 +43,13 @@ endfunction
 task axi_sequence_c::body();
   // UTL-100: look up the config from the starting sequencer's hierarchy
   // rather than a null-context wildcard lookup.
-  if (!uvm_config_db#(axi_agent_cfg_c)::get(m_sequencer, "",
-                                            "axi_agent_cfg", cfg_h)) begin
+  if (!uvm_config_db#(axi_agent_cfg_c)::get(m_sequencer, "", "axi_agent_cfg", cfg_h)) begin
     `uvm_fatal(get_type_name(),
                "uvm_config_db#(axi_agent_cfg_c)::get cannot find resource axi agt config")
   end
 
   // Default frame count; tests that constrain num_tx keep theirs.
-  if (!randomize() with { soft num_tx == cfg_h.num_tx_default; }) begin
+  if (!randomize() with {soft num_tx == cfg_h.num_tx_default;}) begin
     `uvm_fatal(get_type_name(), "Randomization of num_tx failed")
   end
 
@@ -66,8 +63,8 @@ task axi_sequence_c::body();
       end
     end else begin
       if (!axi_item_h.randomize() with {
-            crc_error       == 0;
-            length_error    == 0;
+            crc_error == 0;
+            length_error == 0;
             alignment_error == 0;
             soft payload.size() inside {[cfg_h.min_payload_len : cfg_h.max_payload_len]};
           }) begin

@@ -22,15 +22,14 @@ function mac_sanity_tx_sequence_c::new(string name = "mac_sanity_tx_sequence_c")
 endfunction
 
 task mac_sanity_tx_sequence_c::body();
-  if (num_transactions == 0)
-    `uvm_fatal("MAC_SANITY", "TX transaction count must be non-zero")
+  if (num_transactions == 0) `uvm_fatal("MAC_SANITY", "TX transaction count must be non-zero")
   repeat (num_transactions) begin
     axi_item_c item_h;
     item_h = axi_item_c::type_id::create("sanity_tx_item_h");
     if (!item_h.randomize() with {
-          insert_fcs      == 1'b0;
-          crc_error       == 1'b0;
-          length_error    == 1'b0;
+          insert_fcs == 1'b0;
+          crc_error == 1'b0;
+          length_error == 1'b0;
           alignment_error == 1'b0;
           payload.size() == 46;
           ether_type > 16'h0600;
@@ -57,16 +56,15 @@ function mac_sanity_rx_sequence_c::new(string name = "mac_sanity_rx_sequence_c")
 endfunction
 
 task mac_sanity_rx_sequence_c::body();
-  if (num_transactions == 0)
-    `uvm_fatal("MAC_SANITY", "RX transaction count must be non-zero")
+  if (num_transactions == 0) `uvm_fatal("MAC_SANITY", "RX transaction count must be non-zero")
   repeat (num_transactions) begin
     frame_xtn_c item_h;
     item_h = frame_xtn_c::type_id::create("sanity_rx_item_h");
     if (!item_h.randomize() with {
-          dst_addr        == 48'hFF_FF_FF_FF_FF_FF;
-          insert_fcs      == 1'b1;
-          crc_error       == 1'b0;
-          length_error    == 1'b0;
+          dst_addr == 48'hFF_FF_FF_FF_FF_FF;
+          insert_fcs == 1'b1;
+          crc_error == 1'b0;
+          length_error == 1'b0;
           alignment_error == 1'b0;
           payload.size() == 46;
           ether_type > 16'h0600;
@@ -78,4 +76,4 @@ task mac_sanity_rx_sequence_c::body();
   end
 endtask
 
-`endif // MAC_SANITY_SEQUENCES_SVH
+`endif  // MAC_SANITY_SEQUENCES_SVH

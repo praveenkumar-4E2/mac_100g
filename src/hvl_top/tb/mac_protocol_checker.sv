@@ -8,7 +8,7 @@ class mac_protocol_checker_c extends uvm_component;
   `uvm_component_utils(mac_protocol_checker_c)
 
   uvm_analysis_imp_axi_protocol #(axi_item_c, mac_protocol_checker_c) axi_imp;
-  uvm_analysis_imp_rs_protocol  #(frame_xtn_c, mac_protocol_checker_c) rs_imp;
+  uvm_analysis_imp_rs_protocol #(frame_xtn_c, mac_protocol_checker_c) rs_imp;
   mac_env_cfg_c cfg_h;
   int unsigned axi_checked;
   int unsigned rs_checked;
@@ -40,8 +40,8 @@ function void mac_protocol_checker_c::write_axi_protocol(axi_item_c item);
       (item.payload.size() > cfg_h.max_payload_bytes)) begin
     violations++;
     `uvm_error("MAC_AXI_PROTOCOL", $sformatf("payload size %0d outside configured [%0d:%0d]",
-                                               item.payload.size(), cfg_h.min_payload_bytes,
-                                               cfg_h.max_payload_bytes))
+                                             item.payload.size(), cfg_h.min_payload_bytes,
+                                             cfg_h.max_payload_bytes))
   end
   if (item.insert_fcs && !item.crc_error && item.fcs != item.compute_fcs()) begin
     violations++;
@@ -59,8 +59,8 @@ function void mac_protocol_checker_c::write_rs_protocol(frame_xtn_c item);
       (item.payload.size() > cfg_h.max_payload_bytes)) begin
     violations++;
     `uvm_error("MAC_RS_PROTOCOL", $sformatf("payload size %0d outside configured [%0d:%0d]",
-                                              item.payload.size(), cfg_h.min_payload_bytes,
-                                              cfg_h.max_payload_bytes))
+                                            item.payload.size(), cfg_h.min_payload_bytes,
+                                            cfg_h.max_payload_bytes))
   end
   if (item.insert_fcs && !item.crc_error && item.fcs != item.compute_fcs()) begin
     violations++;
@@ -69,6 +69,7 @@ function void mac_protocol_checker_c::write_rs_protocol(frame_xtn_c item);
 endfunction
 
 function void mac_protocol_checker_c::report_phase(uvm_phase phase);
-  `uvm_info("MAC_PROTOCOL", $sformatf("protocol summary: axi=%0d rs=%0d violations=%0d",
-                                       axi_checked, rs_checked, violations), UVM_NONE)
+  `uvm_info("MAC_PROTOCOL", $sformatf(
+            "protocol summary: axi=%0d rs=%0d violations=%0d", axi_checked, rs_checked, violations),
+            UVM_NONE)
 endfunction
