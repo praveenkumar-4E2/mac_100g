@@ -2,18 +2,18 @@
  * @brief MAC RS RX (line-side) Driver.
  *
  * Receives transaction objects from the sequencer and drives
- * them onto the native MAC <-> RS interface (mac_if). The driver
+ * them onto the native MAC <-> RS interface (mac_rs_stream_if). The driver
  * is primarily active during the run_phase.
  *
- * RS drive contract (see src/hdl_top/integration/mac_top.sv scalar
- * RX ports and src/hdl_top/rx/rx_preamble_detect.sv):
- *  - keep_width-byte beats (mac_if KEEP_WIDTH = DATA_WIDTH/8),
+ * RS drive contract follows the pure-Verilog native MAC/RS ingress boundary
+ * and the converted RX preamble detector:
+ *  - keep_width-byte beats (mac_rs_stream_if KEEP_WIDTH = DATA_WIDTH/8),
  *    lane-0 aligned; the stream carries preamble
  *    (7 x 0x55) + SFD (0xD5) + DA + SA + ET + payload + FCS.
  *  - keep is a contiguous-ones prefix mask, all-ones on interior
- *    beats, (1 << eop_pos) - 1 on the final beat.
- *  - sop asserts on beat 0; eop and eop_pos assert on the final
- *    beat (eop_pos = valid byte count on that beat).
+ *    beats, (1 << frame_end_byte_index) - 1 on the final beat.
+ *  - sop asserts on beat 0; eop and frame_end_byte_index assert on the final
+ *    beat (frame_end_byte_index = valid byte count on that beat).
  *  - error asserts only on the final beat: a beat-0 error would
  *    drop the frame at the preamble detector SEARCH state.
  *  - fcs_present mirrors insert_fcs (informational: the scalar
@@ -28,24 +28,24 @@
  * drive/sample points match the MAC's own view of the bus.
  * Protocol field sizes come from the façade-owned
  * mac_hvl_constants.svh (migrated from rs_globals_pkg); beat
- * geometry comes from the mac_if parameters.
+ * geometry comes from the mac_rs_stream_if parameters.
  */
 
 class rs_driver_c extends uvm_driver #(frame_xtn_c);
   `uvm_component_utils(rs_driver_c)
 
-  virtual mac_if      vif;
-  rs_agent_cfg_c      cfg_h;
+  virtual mac_rs_stream_if vif;
+  rs_agent_cfg_c           cfg_h;
 
   // Instance-local frame counter (UTL-090), read by tests via the driver
   // handle; replaces the former class-static counter on the config.
-  int drv_data_sent_cnt = 0;
+  int                      drv_data_sent_cnt = 0;
 
   // Per-frame driver log sink (default sim/rs_drv.log, override
   // with +RS_DRV_LOG=path). All driver uvm_info messages are
   // echoed to this file via the component report handler.
-  string drv_log_file = "sim/rs_drv.log";
-  int    drv_log_fd;
+  string                   drv_log_file      = "sim/rs_drv.log";
+  int                      drv_log_fd;
 
   extern function new(string name = "rs_driver_c", uvm_component parent = null);
 
@@ -55,7 +55,7 @@ class rs_driver_c extends uvm_driver #(frame_xtn_c);
   extern task reset_signals();
   extern task drive_frame(frame_xtn_c item);
   extern task send_beat(logic [511:0] data, logic [63:0] keep, bit sop, bit eop,
-                        logic [6:0] eop_pos, bit err, bit fcs_present);
+                        logic [6:0] frame_end_byte_index, bit err, bit fcs_present);
 endclass
 
 /**
@@ -97,21 +97,19 @@ function void rs_driver_c::build_phase(uvm_phase phase);
   if ($value$plusargs("RS_DRV_LOG=%s", drv_log_file)) begin
     drv_log_fd = $fopen(drv_log_file, "w");
     if (drv_log_fd == 0) begin
-      `uvm_info(get_type_name(),
-                $sformatf("cannot open driver log %0s, falling back to cwd rs_drv.log",
-                          drv_log_file), UVM_LOW)
+      `uvm_info(get_type_name(), $sformatf(
+                                     "cannot open driver log %0s, falling back to cwd rs_drv.log",
+                                     drv_log_file), UVM_LOW)
       drv_log_file = "rs_drv.log";
-      drv_log_fd = $fopen(drv_log_file, "w");
+      drv_log_fd   = $fopen(drv_log_file, "w");
     end
     if (drv_log_fd == 0) begin
-      `uvm_warning(get_type_name(),
-                   "cannot open any rs driver log file; driver logging disabled")
+      `uvm_warning(get_type_name(), "cannot open any rs driver log file; driver logging disabled")
     end else begin
       set_report_default_file(drv_log_fd);
       set_report_severity_action(UVM_INFO, UVM_DISPLAY | UVM_LOG);
       set_report_verbosity_level(UVM_HIGH);
-      `uvm_info(get_type_name(),
-                $sformatf("driver log file %0s open", drv_log_file), UVM_LOW)
+      `uvm_info(get_type_name(), $sformatf("driver log file %0s open", drv_log_file), UVM_LOW)
     end
   end
 endfunction
@@ -144,14 +142,14 @@ endtask
  * deasserted so the DUT sees an idle bus.
  */
 task rs_driver_c::reset_signals();
-  vif.valid       <= 1'b0;
-  vif.data        <= '0;
-  vif.keep        <= '0;
-  vif.sop         <= 1'b0;
-  vif.eop         <= 1'b0;
-  vif.eop_pos     <= '0;
-  vif.error       <= 1'b0;
-  vif.fcs_present <= 1'b0;
+  vif.valid                <= 1'b0;
+  vif.data                 <= '0;
+  vif.keep                 <= '0;
+  vif.sop                  <= 1'b0;
+  vif.eop                  <= 1'b0;
+  vif.frame_end_byte_index <= '0;
+  vif.error                <= 1'b0;
+  vif.fcs_present          <= 1'b0;
 endtask
 
 /**
@@ -180,30 +178,28 @@ endtask
  * @param item Transaction to drive.
  */
 task rs_driver_c::drive_frame(frame_xtn_c item);
-  mac_frame_c    canon;
-  byte unsigned  wire_q[$];
-  int            frame_size;
-  int            beats;
-  int            valid_bytes;
-  logic [511:0]  data;
-  logic [63:0]   keep;
-  logic [6:0]    eop_pos;
-  bit            last_err;
-  bit            fcs_present;
+  mac_frame_c           canon;
+  byte unsigned         wire_q               [$];
+  int                   frame_size;
+  int                   beats;
+  int                   valid_bytes;
+  logic         [511:0] data;
+  logic         [ 63:0] keep;
+  logic         [  6:0] frame_end_byte_index;
+  bit                   last_err;
+  bit                   fcs_present;
 
   mac_txn_logger_c::write(this, "DRIVE_RS", item);
 
   canon = new();
-  canon.da               = item.dst_addr;
-  canon.sa               = item.src_addr;
+  canon.da = item.dst_addr;
+  canon.sa = item.src_addr;
   // length_error injection: override ether_type with a length
   // value mismatched with the counted payload => invalid_length.
-  canon.ether_type       = (item.length_error && cfg_h.enable_error_injection) ?
-                           item.payload.size() - mac_test_pkg::RS_LEN_ERR_OFFSET :
-                           item.ether_type;
+  canon.ether_type = (item.length_error && cfg_h.enable_error_injection) ?
+      item.payload.size() - mac_test_pkg::RS_LEN_ERR_OFFSET : item.ether_type;
   canon.payload = new[item.payload.size()];
-  foreach (item.payload[i])
-    canon.payload[i] = item.payload[i];
+  foreach (item.payload[i]) canon.payload[i] = item.payload[i];
   canon.fcs              = item.fcs;
   canon.fcs_present      = item.insert_fcs;
   canon.preamble_present = 1'b1;
@@ -218,18 +214,15 @@ task rs_driver_c::drive_frame(frame_xtn_c item);
   frame_size  = wire_q.size();
   beats       = mac_hvl_utils_c::ceil_div(frame_size, vif.KEEP_WIDTH);
   for (int b = 0; b < beats; b++) begin
-    valid_bytes = (frame_size - b * vif.KEEP_WIDTH >= vif.KEEP_WIDTH) ?
-                  vif.KEEP_WIDTH : frame_size - b * vif.KEEP_WIDTH;
+    valid_bytes = (frame_size - b * vif.KEEP_WIDTH >= vif.KEEP_WIDTH) ? vif.KEEP_WIDTH :
+        frame_size - b * vif.KEEP_WIDTH;
     keep = mac_hvl_utils_c::keep_from_valid_bytes(valid_bytes, vif.KEEP_WIDTH);
-    void'(mac_hvl_utils_c::extract_beat_bytes(wire_q, data, valid_bytes,
-                                              vif.KEEP_WIDTH));
+    void'(mac_hvl_utils_c::extract_beat_bytes(wire_q, data, valid_bytes, vif.KEEP_WIDTH));
     // alignment_error asserts on the final beat only: a beat-0
     // error would drop the frame at the preamble detector SEARCH.
-    last_err = (b == beats - 1) &&
-               (item.alignment_error && cfg_h.enable_error_injection);
-    eop_pos  = (b == beats - 1) ? valid_bytes : '0;
-    send_beat(data, keep, (b == 0), (b == beats - 1), eop_pos, last_err,
-              fcs_present);
+    last_err = (b == beats - 1) && (item.alignment_error && cfg_h.enable_error_injection);
+    frame_end_byte_index = (b == beats - 1) ? valid_bytes : '0;
+    send_beat(data, keep, (b == 0), (b == beats - 1), frame_end_byte_index, last_err, fcs_present);
   end
 
   // IEEE 802.3 inter-packet gap: cfg_h.ipg_bits of idle between
@@ -237,21 +230,18 @@ task rs_driver_c::drive_frame(frame_xtn_c item);
   // the gap; only the shortfall needs extra idle cycles.
   begin
     int ipg_cycles = mac_hvl_utils_c::ipg_cycles_from_valid_bytes(
-                         valid_bytes, vif.KEEP_WIDTH, vif.DATA_WIDTH,
-                         cfg_h.ipg_bits);
+        valid_bytes, vif.KEEP_WIDTH, vif.DATA_WIDTH, cfg_h.ipg_bits
+    );
     repeat (ipg_cycles) @(posedge vif.clk);
   end
 
   drv_data_sent_cnt++;
   if (cfg_h.enable_logger) begin
-    `uvm_info(get_type_name(),
-              $sformatf("drv sent frame: %s beats=%0d bytes=%0d",
-                        item.convert2string(), beats, frame_size),
-              UVM_MEDIUM)
+    `uvm_info(get_type_name(), $sformatf("drv sent frame: %s beats=%0d bytes=%0d",
+                                         item.convert2string(), beats, frame_size), UVM_MEDIUM)
   end else begin
-    `uvm_info(get_type_name(),
-              $sformatf("drv sent frame: %s beats=%0d bytes=%0d",
-                        item.convert2string(), beats, frame_size),
+    `uvm_info(get_type_name(), $sformatf(
+              "drv sent frame: %s beats=%0d bytes=%0d", item.convert2string(), beats, frame_size),
               UVM_HIGH)
   end
 endtask
@@ -270,20 +260,20 @@ endtask
  * @param keep 64-bit byte-enable prefix mask.
  * @param sop Start-of-packet marker.
  * @param eop End-of-packet marker.
- * @param eop_pos Valid byte count on the final beat.
+ * @param frame_end_byte_index Valid byte count on the final beat.
  * @param err Error flag.
  * @param fcs_present FCS presence flag.
  */
 task rs_driver_c::send_beat(logic [511:0] data, logic [63:0] keep, bit sop, bit eop,
-                            logic [6:0] eop_pos, bit err, bit fcs_present);
-  vif.valid       <= 1'b1;
-  vif.data        <= data;
-  vif.keep        <= keep;
-  vif.sop         <= sop;
-  vif.eop         <= eop;
-  vif.eop_pos     <= eop_pos;
-  vif.error       <= err;
-  vif.fcs_present <= fcs_present;
+                            logic [6:0] frame_end_byte_index, bit err, bit fcs_present);
+  vif.valid                <= 1'b1;
+  vif.data                 <= data;
+  vif.keep                 <= keep;
+  vif.sop                  <= sop;
+  vif.eop                  <= eop;
+  vif.frame_end_byte_index <= frame_end_byte_index;
+  vif.error                <= err;
+  vif.fcs_present          <= fcs_present;
   do begin
     // Wait on the raw clock edge, not the clocking-block posedge event:
     // drv_cb applies a #1step input skew whose event fires one step before

@@ -2,8 +2,8 @@ class mac_reset_monitor_c extends uvm_monitor;
   `uvm_component_utils(mac_reset_monitor_c)
 
   uvm_analysis_port #(mac_reset_item_c) analysis_port;
-  mac_reset_agent_cfg_c                  cfg_h;
-  virtual mac_reset_if                   vif;
+  mac_reset_agent_cfg_c                 cfg_h;
+  virtual mac_reset_if                  vif;
 
   extern function new(string name = "mac_reset_monitor_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
@@ -11,8 +11,7 @@ class mac_reset_monitor_c extends uvm_monitor;
   extern function void publish_event(bit is_asserted);
 endclass
 
-function mac_reset_monitor_c::new(string name = "mac_reset_monitor_c",
-                                  uvm_component parent = null);
+function mac_reset_monitor_c::new(string name = "mac_reset_monitor_c", uvm_component parent = null);
   super.new(name, parent);
   analysis_port = new("analysis_port", this);
 endfunction
@@ -36,8 +35,7 @@ task mac_reset_monitor_c::run_phase(uvm_phase phase);
     @(vif.mon_cb);
     current_value = vif.mon_cb.rst;
     if (current_value != previous_value)
-      publish_event(mac_reset_utils_c::is_asserted(current_value,
-                                                    cfg_h.active_level));
+      publish_event(mac_reset_utils_c::is_asserted(current_value, cfg_h.active_level));
     previous_value = current_value;
   end
 endtask
@@ -45,8 +43,8 @@ endtask
 function void mac_reset_monitor_c::publish_event(bit is_asserted);
   mac_reset_item_c item_h;
   item_h = mac_reset_item_c::type_id::create("reset_event_item_h");
-  item_h.operation  = is_asserted ? MAC_RESET_ASSERT : MAC_RESET_DEASSERT;
-  item_h.reset_id   = cfg_h.reset_id;
+  item_h.operation = is_asserted ? MAC_RESET_ASSERT : MAC_RESET_DEASSERT;
+  item_h.reset_id = cfg_h.reset_id;
   item_h.event_time = $time;
   mac_txn_logger_c::write(this, "OBSERVE_RESET", item_h);
   analysis_port.write(item_h);

@@ -1,13 +1,13 @@
 // APB-specific report IDs shared across the agent (C-14). Distinct from the
 // interface assertion IDs (APB_ASSERT) and the checker IDs (APB_PROTOCOL) so
 // triage is unambiguous; the driver reuses the timeout/reset-abort IDs here.
-localparam string APB_RESPONSE_ID      = "APB_RESPONSE";
-localparam string APB_SLV_EXPECTED_ID  = "APB_SLV_EXPECTED";
+localparam string APB_RESPONSE_ID = "APB_RESPONSE";
+localparam string APB_SLV_EXPECTED_ID = "APB_SLV_EXPECTED";
 localparam string APB_SLV_UNEXPECTED_ID = "APB_SLV_UNEXPECTED";
-localparam string APB_TIMEOUT_ID       = "APB_TIMEOUT";
-localparam string APB_RESET_ABORT_ID   = "APB_RESET_ABORT";
-localparam string APB_PROTOCOL_ID      = "APB_PROTOCOL";
-localparam string APB_RAND_FAIL_ID     = "APB_RAND_FAIL";
+localparam string APB_TIMEOUT_ID = "APB_TIMEOUT";
+localparam string APB_RESET_ABORT_ID = "APB_RESET_ABORT";
+localparam string APB_PROTOCOL_ID = "APB_PROTOCOL";
+localparam string APB_RAND_FAIL_ID = "APB_RAND_FAIL";
 
 /**
  * @brief Base sequence for APB transfers.
@@ -25,10 +25,8 @@ class apb_sequence_base_c extends uvm_sequence #(apb_transfer_c);
 
   extern function new(string name = "apb_sequence_base_c");
   extern task do_write(bit [apb_transfer_t::ADDR_WIDTH-1:0] addr,
-                       bit [apb_transfer_t::DATA_WIDTH-1:0] wdata,
-                       bit expect_slverr = 1'b0);
-  extern task do_read(bit [apb_transfer_t::ADDR_WIDTH-1:0] addr,
-                      bit expect_slverr = 1'b0);
+                       bit [apb_transfer_t::DATA_WIDTH-1:0] wdata, bit expect_slverr = 1'b0);
+  extern task do_read(bit [apb_transfer_t::ADDR_WIDTH-1:0] addr, bit expect_slverr = 1'b0);
   extern task fetch_response();
   extern task check_status(apb_transfer_status_e expected);
   extern function void report_failure(apb_transfer_status_e expected);
@@ -56,10 +54,9 @@ endfunction
  * @param wdata         Write data.
  * @param expect_slverr Intent: the test expects PSLVERR on this access.
  */
-task apb_sequence_base_c::do_write(
-  bit [apb_transfer_t::ADDR_WIDTH-1:0] addr,
-  bit [apb_transfer_t::DATA_WIDTH-1:0] wdata,
-  bit expect_slverr = 1'b0);
+task apb_sequence_base_c::do_write(bit [apb_transfer_t::ADDR_WIDTH-1:0] addr,
+                                   bit [apb_transfer_t::DATA_WIDTH-1:0] wdata,
+                                   bit expect_slverr = 1'b0);
   apb_transfer_t item = apb_transfer_t::type_id::create("write_item");
   item.pwrite        = 1'b1;
   item.addr          = addr;
@@ -79,9 +76,8 @@ endtask
  * @param addr          Transfer address.
  * @param expect_slverr Intent: the test expects PSLVERR on this access.
  */
-task apb_sequence_base_c::do_read(
-  bit [apb_transfer_t::ADDR_WIDTH-1:0] addr,
-  bit expect_slverr = 1'b0);
+task apb_sequence_base_c::do_read(bit [apb_transfer_t::ADDR_WIDTH-1:0] addr,
+                                  bit expect_slverr = 1'b0);
   apb_transfer_t item = apb_transfer_t::type_id::create("read_item");
   item.pwrite        = 1'b0;
   item.addr          = addr;
@@ -111,14 +107,12 @@ endtask
  */
 task apb_sequence_base_c::check_status(apb_transfer_status_e expected);
   if (m_rsp == null) begin
-    `uvm_fatal(APB_RESPONSE_ID,
-               "check_status: no response fetched (call fetch_response first)")
+    `uvm_fatal(APB_RESPONSE_ID, "check_status: no response fetched (call fetch_response first)")
   end
   if (m_rsp.status == expected) begin
     if (expected == APB_SLVERR)
-      `uvm_info(APB_SLV_EXPECTED_ID,
-                $sformatf("expected PSLVERR observed: %s", m_rsp.convert2string()),
-                UVM_MEDIUM)
+      `uvm_info(APB_SLV_EXPECTED_ID, $sformatf(
+                "expected PSLVERR observed: %s", m_rsp.convert2string()), UVM_MEDIUM)
   end else begin
     report_failure(expected);
   end
@@ -130,7 +124,10 @@ endtask
  * @param expected Expected response status.
  */
 function void apb_sequence_base_c::report_failure(apb_transfer_status_e expected);
-  `uvm_error(APB_RESPONSE_ID,
-             $sformatf("APB response mismatch: expected status=%0s observed status=%0s %s",
-                       expected.name(), m_rsp.status.name(), m_rsp.convert2string()))
+  `uvm_error(APB_RESPONSE_ID, $sformatf(
+             "APB response mismatch: expected status=%0s observed status=%0s %s",
+             expected.name(),
+             m_rsp.status.name(),
+             m_rsp.convert2string()
+             ))
 endfunction

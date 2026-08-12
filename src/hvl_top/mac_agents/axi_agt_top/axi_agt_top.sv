@@ -9,9 +9,9 @@
 class axi_agent_top_c extends uvm_env;
   `uvm_component_utils(axi_agent_top_c)
 
-  axi_agent_c active_agents [];
-  axi_agent_c passive_agents[];
-  mac_env_cfg_c  cfg_h;
+  axi_agent_c   active_agents [];
+  axi_agent_c   passive_agents[];
+  mac_env_cfg_c cfg_h;
 
 
 
@@ -58,8 +58,8 @@ function void axi_agent_top_c::build_phase(uvm_phase phase);
     // UTL-097: the config scope glob covers the agent and its driver/
     // monitor/sequencer descendants; the component name itself must not
     // carry the glob star.
-    uvm_config_db#(axi_agent_cfg_c)::set(this, $sformatf("active_agents[%0d]*", i),
-                                            "axi_agent_cfg", cfg_h.axi_active_agent_cfgs[i]);
+    uvm_config_db#(axi_agent_cfg_c)::set(this, $sformatf("active_agents[%0d]*", i), "axi_agent_cfg",
+                                         cfg_h.axi_active_agent_cfgs[i]);
     active_agents[i] = axi_agent_c::type_id::create($sformatf("active_agents[%0d]", i), this);
   end
 
@@ -70,7 +70,7 @@ function void axi_agent_top_c::build_phase(uvm_phase phase);
       `uvm_fatal("CONFIG_ERROR", "mac_env_cfg_c::axi_passive_agent_cfgs contains a null config")
     end
     uvm_config_db#(axi_agent_cfg_c)::set(this, $sformatf("passive_agents[%0d]*", i),
-                                            "axi_agent_cfg", cfg_h.axi_passive_agent_cfgs[i]);
+                                         "axi_agent_cfg", cfg_h.axi_passive_agent_cfgs[i]);
     passive_agents[i] = axi_agent_c::type_id::create($sformatf("passive_agents[%0d]", i), this);
   end
 endfunction

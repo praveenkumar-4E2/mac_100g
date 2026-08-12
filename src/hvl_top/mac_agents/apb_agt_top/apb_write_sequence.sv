@@ -36,6 +36,5 @@ endfunction
 task apb_write_sequence_c::body();
   do_write(m_addr, m_wdata, m_expect_slverr);
   fetch_response();
-  if (m_check_response)
-    check_status(m_expected_status);
+  if (m_check_response) check_status(m_expected_status);
 endtask

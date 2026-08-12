@@ -74,8 +74,7 @@ endfunction
 function void axi_agent_cfg_c::validate();
   string problems;
 
-  if (vif == null)
-    problems = {problems, " vif=null"};
+  if (vif == null) problems = {problems, " vif=null"};
   if (is_active == UVM_PASSIVE && !has_monitor)
     problems = {problems, " passive agent with has_monitor=0 observes nothing"};
   if (min_payload_len < 0)
@@ -83,15 +82,17 @@ function void axi_agent_cfg_c::validate();
   if (max_payload_len < 0)
     problems = {problems, $sformatf(" max_payload_len=%0d<0", max_payload_len)};
   if (min_payload_len > max_payload_len)
-    problems = {problems, $sformatf(" payload bounds [%0d:%0d] inverted",
-                                    min_payload_len, max_payload_len)};
+    problems = {
+      problems, $sformatf(" payload bounds [%0d:%0d] inverted", min_payload_len, max_payload_len)
+    };
   if (generate_backpressure && tready_stall_max <= 0)
-    problems = {problems, $sformatf(" backpressure enabled but tready_stall_max=%0d<=0",
-                                    tready_stall_max)};
+    problems = {
+      problems, $sformatf(" backpressure enabled but tready_stall_max=%0d<=0", tready_stall_max)
+    };
 
   if (problems != "")
-    `uvm_fatal(get_type_name(),
-               $sformatf("%s: invalid configuration:%0s", get_type_name(), problems))
+    `uvm_fatal(get_type_name(), $sformatf("%s: invalid configuration:%0s", get_type_name(), problems
+               ))
 endfunction
 
 /**
@@ -100,13 +101,26 @@ endfunction
  * @return Formatted configuration summary.
  */
 function string axi_agent_cfg_c::convert2string();
-  return {$sformatf("is_active=%0s mac_id=%0d vif=%0d err_inj=%0b",
-                    is_active.name(), m_mac_id, (vif != null),
-                    enable_error_injection),
-           $sformatf(" payload=[%0d:%0d] num_tx_default=%0d has_monitor=%0b",
-                     min_payload_len, max_payload_len, num_tx_default,
-                     has_monitor),
-           $sformatf(" frame_logger=%0b backpressure=%0b stall_max=%0d",
-                     enable_logger, generate_backpressure,
-                     tready_stall_max)};
+  return {
+    $sformatf(
+        "is_active=%0s mac_id=%0d vif=%0d err_inj=%0b",
+        is_active.name(),
+        m_mac_id,
+        (vif != null),
+        enable_error_injection
+    ),
+    $sformatf(
+        " payload=[%0d:%0d] num_tx_default=%0d has_monitor=%0b",
+        min_payload_len,
+        max_payload_len,
+        num_tx_default,
+        has_monitor
+    ),
+    $sformatf(
+        " frame_logger=%0b backpressure=%0b stall_max=%0d",
+        enable_logger,
+        generate_backpressure,
+        tready_stall_max
+    )
+  };
 endfunction

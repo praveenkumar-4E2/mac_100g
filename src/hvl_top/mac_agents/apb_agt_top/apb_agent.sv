@@ -11,11 +11,11 @@
 class apb_agent_c extends uvm_agent;
   `uvm_component_utils(apb_agent_c)
 
-  apb_sequencer_c         sequencer_h;
-  apb_driver_c            driver_h;
-  apb_monitor_c           monitor_h;
-  apb_protocol_checker_c  checker_h;
-  apb_agent_cfg_c         cfg_h;
+  apb_sequencer_c        sequencer_h;
+  apb_driver_c           driver_h;
+  apb_monitor_c          monitor_h;
+  apb_protocol_checker_c checker_h;
+  apb_agent_cfg_c        cfg_h;
 
   extern function new(string name = "apb_agent_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
@@ -46,8 +46,8 @@ endfunction
 function void apb_agent_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
   if (!uvm_config_db#(apb_agent_cfg_c)::get(this, "", "apb_agent_cfg", cfg_h)) begin
-    `uvm_fatal("CONFIG_ERROR",
-               $sformatf("%s: cannot find apb_agent_cfg in config db", get_type_name()))
+    `uvm_fatal("CONFIG_ERROR", $sformatf("%s: cannot find apb_agent_cfg in config db",
+                                         get_type_name()))
   end
   cfg_h.validate();
   if (cfg_h.m_has_monitor) begin
@@ -70,8 +70,6 @@ endfunction
  * @param phase Current UVM connect phase.
  */
 function void apb_agent_c::connect_phase(uvm_phase phase);
-  if (cfg_h.m_is_active == UVM_ACTIVE)
-    driver_h.seq_item_port.connect(sequencer_h.seq_item_export);
-  if (monitor_h != null && checker_h != null)
-    monitor_h.ap.connect(checker_h.analysis_export);
+  if (cfg_h.m_is_active == UVM_ACTIVE) driver_h.seq_item_port.connect(sequencer_h.seq_item_export);
+  if (monitor_h != null && checker_h != null) monitor_h.ap.connect(checker_h.analysis_export);
 endfunction

@@ -24,7 +24,7 @@
 class apb_driver_c extends uvm_driver #(apb_transfer_c);
   `uvm_component_utils(apb_driver_c)
 
-  apb_agent_cfg_c cfg_h;
+  apb_agent_cfg_c  cfg_h;
 
   // Response ordinal and observed-clock counter for this driver instance.
   longint unsigned m_ordinal = 0;
@@ -63,8 +63,8 @@ endfunction
 function void apb_driver_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
   if (!uvm_config_db#(apb_agent_cfg_c)::get(this, "", "apb_agent_cfg", cfg_h)) begin
-    `uvm_fatal("CONFIG_ERROR",
-               $sformatf("%s: cannot find apb_agent_cfg in config db", get_type_name()))
+    `uvm_fatal("CONFIG_ERROR", $sformatf("%s: cannot find apb_agent_cfg in config db",
+                                         get_type_name()))
   end
   cfg_h.validate();
 endfunction
@@ -86,8 +86,7 @@ task apb_driver_c::run_phase(uvm_phase phase);
     seq_item_port.get_next_item(req);
     drive_idle();
     wait_reset_deasserted();
-    if (cfg_h.m_reset_release_cycles > 0)
-      repeat (cfg_h.m_reset_release_cycles) tick();
+    if (cfg_h.m_reset_release_cycles > 0) repeat (cfg_h.m_reset_release_cycles) tick();
     rsp = new_response(req);
     drive_transfer(req, rsp);
     mac_txn_logger_c::write(this, "DRIVE_APB", rsp);
@@ -125,11 +124,11 @@ endtask
  * never touched.
  */
 task apb_driver_c::drive_idle();
-  cfg_h.m_vif.psel   <= 1'b0;
+  cfg_h.m_vif.psel <= 1'b0;
   cfg_h.m_vif.penable <= 1'b0;
-  cfg_h.m_vif.pwrite  <= 1'b0;
-  cfg_h.m_vif.paddr   <= '0;
-  cfg_h.m_vif.pwdata  <= '0;
+  cfg_h.m_vif.pwrite <= 1'b0;
+  cfg_h.m_vif.paddr <= '0;
+  cfg_h.m_vif.pwdata <= '0;
 endtask
 
 /**
@@ -140,8 +139,7 @@ endtask
  * the deassertion.
  */
 task apb_driver_c::wait_reset_deasserted();
-  while (cfg_h.m_vif.drv_cb.rst)
-    tick();
+  while (cfg_h.m_vif.drv_cb.rst) tick();
 endtask
 
 /**
@@ -190,11 +188,11 @@ task apb_driver_c::drive_transfer(apb_transfer_t req, apb_transfer_t rsp);
   int unsigned wait_cycles = 0;
 
   // Setup phase: selected, not enabled, with direction/address/write data.
-  cfg_h.m_vif.psel   <= 1'b1;
+  cfg_h.m_vif.psel <= 1'b1;
   cfg_h.m_vif.penable <= 1'b0;
-  cfg_h.m_vif.pwrite  <= req.pwrite;
-  cfg_h.m_vif.paddr   <= req.addr;
-  cfg_h.m_vif.pwdata  <= req.wdata;
+  cfg_h.m_vif.pwrite <= req.pwrite;
+  cfg_h.m_vif.paddr <= req.addr;
+  cfg_h.m_vif.pwdata <= req.wdata;
   rsp.setup_time  = $time;
   rsp.setup_cycle = m_cycle;
 
@@ -203,9 +201,8 @@ task apb_driver_c::drive_transfer(apb_transfer_t req, apb_transfer_t rsp);
     drive_idle();
     rsp.status          = APB_RESET_ABORT;
     rsp.completion_time = $time;
-    `uvm_info(APB_RESET_ABORT_ID,
-              $sformatf("APB reset abort during setup: %s", rsp.convert2string()),
-              UVM_MEDIUM)
+    `uvm_info(APB_RESET_ABORT_ID, $sformatf("APB reset abort during setup: %s",
+                                            rsp.convert2string()), UVM_MEDIUM)
     return;
   end
 
@@ -220,44 +217,36 @@ task apb_driver_c::drive_transfer(apb_transfer_t req, apb_transfer_t rsp);
       drive_idle();
       rsp.status          = APB_RESET_ABORT;
       rsp.completion_time = $time;
-      `uvm_info(APB_RESET_ABORT_ID,
-                $sformatf("APB reset abort during access: %s", rsp.convert2string()),
-                UVM_MEDIUM)
+      `uvm_info(APB_RESET_ABORT_ID, $sformatf("APB reset abort during access: %s",
+                                              rsp.convert2string()), UVM_MEDIUM)
       return;
     end
     if (cfg_h.m_vif.drv_cb.pready) break;
     wait_cycles++;
     if (wait_cycles > cfg_h.m_max_wait_cycles) begin
       drive_idle();
-      rsp.status          = APB_TIMEOUT;
-      rsp.wait_cycles     = wait_cycles;
-      rsp.completion_time = $time;
+      rsp.status           = APB_TIMEOUT;
+      rsp.wait_cycles      = wait_cycles;
+      rsp.completion_time  = $time;
       rsp.completion_cycle = m_cycle;
-      `uvm_info(APB_TIMEOUT_ID,
-                $sformatf("APB timeout after %0d wait cycles: %s",
-                          wait_cycles, rsp.convert2string()),
-                UVM_MEDIUM)
+      `uvm_info(APB_TIMEOUT_ID, $sformatf("APB timeout after %0d wait cycles: %s", wait_cycles,
+                                          rsp.convert2string()), UVM_MEDIUM)
       return;
     end
   end
 
   // Completing access: PREADY sampled high; sample PRDATA (reads) and
   // PSLVERR here, never during earlier wait cycles.
-  rsp.slverr          = cfg_h.m_vif.drv_cb.pslverr;
-  if (!req.pwrite)
-    rsp.rdata         = cfg_h.m_vif.drv_cb.prdata;
-  rsp.wait_cycles     = wait_cycles;
-  rsp.completion_time = $time;
+  rsp.slverr = cfg_h.m_vif.drv_cb.pslverr;
+  if (!req.pwrite) rsp.rdata = cfg_h.m_vif.drv_cb.prdata;
+  rsp.wait_cycles      = wait_cycles;
+  rsp.completion_time  = $time;
   rsp.completion_cycle = m_cycle;
-  rsp.status          = rsp.slverr ? APB_SLVERR : APB_OK;
+  rsp.status           = rsp.slverr ? APB_SLVERR : APB_OK;
   drive_idle();
 
   if (cfg_h.m_enable_logger)
-    `uvm_info(get_type_name(),
-              $sformatf("APB drv %s", rsp.convert2string()),
+    `uvm_info(get_type_name(), $sformatf("APB drv %s", rsp.convert2string()),
               cfg_h.m_transfer_verbosity)
-  else
-    `uvm_info(get_type_name(),
-              $sformatf("APB drv %s", rsp.convert2string()),
-              UVM_HIGH)
+  else `uvm_info(get_type_name(), $sformatf("APB drv %s", rsp.convert2string()), UVM_HIGH)
 endtask

@@ -54,8 +54,7 @@ function void rs_agent_c::build_phase(uvm_phase phase);
     driver_h    =  rs_driver_c::type_id::create("driver_h",this);
     sequencer_h   =  rs_sequencer_c::type_id::create("sequencer_h",this);
   end
-  if (cfg_h.has_monitor)
-    monitor_h = rs_monitor_c::type_id::create("monitor_h", this);
+  if (cfg_h.has_monitor) monitor_h = rs_monitor_c::type_id::create("monitor_h", this);
 endfunction
 
 

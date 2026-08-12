@@ -6,8 +6,7 @@ class mac_reset_sequence_c extends uvm_sequence #(mac_reset_item_c);
 
   extern function new(string name = "mac_reset_sequence_c");
   extern task body();
-  extern task send_operation(mac_reset_operation_e operation,
-                             int unsigned item_duration_cycles);
+  extern task send_operation(mac_reset_operation_e operation, int unsigned item_duration_cycles);
 endclass
 
 function mac_reset_sequence_c::new(string name = "mac_reset_sequence_c");
@@ -17,8 +16,8 @@ endfunction
 task mac_reset_sequence_c::body();
   int unsigned effective_duration_cycles;
 
-  effective_duration_cycles = (duration_cycles == 0) ?
-                              p_sequencer.cfg_h.default_duration_cycles : duration_cycles;
+  effective_duration_cycles = (duration_cycles == 0) ? p_sequencer.cfg_h.default_duration_cycles :
+      duration_cycles;
   send_operation(MAC_RESET_ASSERT, effective_duration_cycles);
   send_operation(MAC_RESET_DEASSERT, 0);
 endtask

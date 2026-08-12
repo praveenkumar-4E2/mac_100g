@@ -9,37 +9,48 @@
 class axi_item_c extends uvm_sequence_item;
   `uvm_object_utils(axi_item_c)
 
+  // Trace identifier assigned at generation or monitor reconstruction.
+  int unsigned               packet_id;
+  static int unsigned        next_packet_id      = 1;
+
   // Ethernet Header
-  rand bit [47:0] dst_addr;      // DA
-  rand bit [47:0] src_addr;      // SA
-  rand bit [15:0] ether_type;
+  rand bit            [47:0] dst_addr;  // DA
+  rand bit            [47:0] src_addr;  // SA
+  rand bit            [15:0] ether_type;
 
   // Payload
-  rand byte unsigned payload[];
+  rand byte unsigned         payload         [];
 
   // FCS
-  rand bit [31:0] fcs;
-  rand bit        insert_fcs;
+  rand bit            [31:0] fcs;
+  rand bit                   insert_fcs;
 
   // Error Injection
-  rand bit crc_error;
-  rand bit length_error;
-  rand bit alignment_error;
+  rand bit                   crc_error;
+  rand bit                   length_error;
+  rand bit                   alignment_error;
 
   // Bounds the payload to a legal Ethernet frame payload length:
   // 46 bytes (minimum frame size, 64 B incl. header + FCS) to
   // 1500 bytes (maximum untagged frame payload).
-  constraint c_payload_size {
-    payload.size() inside {[46:1500]};
-  }
+  constraint c_payload_size {payload.size() inside {[46 : 1500]};}
 
   // Weighted error injection: the DUT is mostly driven with
   // clean frames, with rare single-error frames to exercise the
   // error detection paths. Weights are roughly 10%/5%/3%.
   constraint c_error_injection {
-    crc_error       dist { 0 := 90, 1 := 10 };
-    length_error    dist { 0 := 95, 1 := 5  };
-    alignment_error dist { 0 := 97, 1 := 3  };
+    crc_error dist {
+      0 := 90,
+      1 := 10
+    };
+    length_error dist {
+      0 := 95,
+      1 := 5
+    };
+    alignment_error dist {
+      0 := 97,
+      1 := 3
+    };
   }
 
   // Most frames carry an FCS (90%); frames with insert_fcs == 0
@@ -47,7 +58,10 @@ class axi_item_c extends uvm_sequence_item;
   // value is computed in post_randomize(), not constrained here,
   // because constraint solving cannot see the finalized payload.
   constraint c_fcs {
-    insert_fcs dist { 1 := 90, 0 := 10 };
+    insert_fcs dist {
+      1 := 90,
+      0 := 10
+    };
   }
 
   // Compute the CRC-32 FCS after randomization so it always
@@ -56,10 +70,9 @@ class axi_item_c extends uvm_sequence_item;
   // random (wrong) FCS to inject a CRC error. Frames without
   // an FCS field carry fcs = 0.
   function void post_randomize();
-    if (!insert_fcs)
-      fcs = '0;
-    else if (!crc_error)
-      fcs = compute_fcs();
+    if (packet_id == 0) packet_id = next_packet_id++;
+    if (!insert_fcs) fcs = '0;
+    else if (!crc_error) fcs = compute_fcs();
   endfunction
 
   extern function new(string name = "axi_item_c");
@@ -90,14 +103,14 @@ endfunction
 function void axi_item_c::do_copy(uvm_object rhs);
   axi_item_c rhs_h;
   if (!$cast(rhs_h, rhs)) begin
-    `uvm_fatal("TYPE_MISMATCH",
-               $sformatf("do_copy: %s is not an axi_item_c", rhs.get_type_name()))
+    `uvm_fatal("TYPE_MISMATCH", $sformatf("do_copy: %s is not an axi_item_c", rhs.get_type_name()))
   end
   super.do_copy(rhs);
-  dst_addr        = rhs_h.dst_addr;
-  src_addr        = rhs_h.src_addr;
-  ether_type      = rhs_h.ether_type;
-  payload         = new[rhs_h.payload.size()];
+  dst_addr   = rhs_h.dst_addr;
+  packet_id  = rhs_h.packet_id;
+  src_addr   = rhs_h.src_addr;
+  ether_type = rhs_h.ether_type;
+  payload    = new[rhs_h.payload.size()];
   foreach (payload[i]) payload[i] = rhs_h.payload[i];
   fcs             = rhs_h.fcs;
   insert_fcs      = rhs_h.insert_fcs;
@@ -117,18 +130,12 @@ function bit axi_item_c::do_compare(uvm_object rhs, uvm_comparer comparer);
   axi_item_c rhs_h;
   if (!super.do_compare(rhs, comparer)) return 0;
   if (!$cast(rhs_h, rhs)) return 0;
-  if (dst_addr        !== rhs_h.dst_addr  ||
-      src_addr        !== rhs_h.src_addr  ||
-      ether_type      !== rhs_h.ether_type ||
-      fcs             !== rhs_h.fcs       ||
-      insert_fcs      !== rhs_h.insert_fcs ||
-      crc_error       !== rhs_h.crc_error ||
-      length_error    !== rhs_h.length_error ||
-      alignment_error !== rhs_h.alignment_error ||
-      payload.size()  != rhs_h.payload.size())
+  if (packet_id !== rhs_h.packet_id || dst_addr !== rhs_h.dst_addr || src_addr !== rhs_h.src_addr ||
+      ether_type !== rhs_h.ether_type || fcs !== rhs_h.fcs || insert_fcs !== rhs_h.insert_fcs ||
+      crc_error !== rhs_h.crc_error || length_error !== rhs_h.length_error ||
+      alignment_error !== rhs_h.alignment_error || payload.size() != rhs_h.payload.size())
     return 0;
-  foreach (payload[i])
-    if (payload[i] !== rhs_h.payload[i]) return 0;
+  foreach (payload[i]) if (payload[i] !== rhs_h.payload[i]) return 0;
   return 1;
 endfunction
 
@@ -139,17 +146,17 @@ endfunction
  */
 function void axi_item_c::do_print(uvm_printer printer);
   super.do_print(printer);
-  printer.print_field("dst_addr",        dst_addr,        48, UVM_HEX);
-  printer.print_field("src_addr",        src_addr,        48, UVM_HEX);
-  printer.print_field("ether_type",      ether_type,      16, UVM_HEX);
-  printer.print_field("fcs",             fcs,             32, UVM_HEX);
-  printer.print_field("insert_fcs",      insert_fcs,       1, UVM_BIN);
-  printer.print_field("crc_error",       crc_error,        1, UVM_BIN);
-  printer.print_field("length_error",    length_error,     1, UVM_BIN);
-  printer.print_field("alignment_error", alignment_error,  1, UVM_BIN);
+  printer.print_field("packet_id", packet_id, 32, UVM_DEC);
+  printer.print_field("dst_addr", dst_addr, 48, UVM_HEX);
+  printer.print_field("src_addr", src_addr, 48, UVM_HEX);
+  printer.print_field("ether_type", ether_type, 16, UVM_HEX);
+  printer.print_field("fcs", fcs, 32, UVM_HEX);
+  printer.print_field("insert_fcs", insert_fcs, 1, UVM_BIN);
+  printer.print_field("crc_error", crc_error, 1, UVM_BIN);
+  printer.print_field("length_error", length_error, 1, UVM_BIN);
+  printer.print_field("alignment_error", alignment_error, 1, UVM_BIN);
   printer.print_array_header("payload", payload.size(), "byte unsigned", "%0d");
-  foreach (payload[i])
-    printer.print_field($sformatf("[%0d]", i), payload[i], 8, UVM_HEX);
+  foreach (payload[i]) printer.print_field($sformatf("[%0d]", i), payload[i], 8, UVM_HEX);
   printer.print_array_footer(payload.size());
 endfunction
 
@@ -159,17 +166,29 @@ endfunction
  * @return Formatted transaction summary.
  */
 function string axi_item_c::convert2string();
-  return {$sformatf("DA=%h SA=%h ET=%h FCS=%h PLEN=%0d FCS_ON=%0b ",
-                    dst_addr, src_addr, ether_type, fcs, payload.size(), insert_fcs),
-           $sformatf("CRC_ERR=%0b LEN_ERR=%0b ALIGN_ERR=%0b",
-                     crc_error, length_error, alignment_error)};
+  return {
+    $sformatf(
+        "PKT=%0d DA=%h SA=%h ET=%h FCS=%h PLEN=%0d FCS_ON=%0b ",
+        packet_id,
+        dst_addr,
+        src_addr,
+        ether_type,
+        fcs,
+        payload.size(),
+        insert_fcs
+    ),
+    $sformatf("CRC_ERR=%0b LEN_ERR=%0b ALIGN_ERR=%0b", crc_error, length_error, alignment_error)
+  };
 endfunction
+
+// Readable protocol-specific alias retained alongside the established factory type.
+typedef axi_item_c axi4_stream_frame_item_c;
 
 /**
  * @brief Computes the IEEE 802.3 CRC-32 FCS over DA+SA+ET+payload.
  *
  * LSB-first reflected CRC-32 (polynomial 0xEDB88320, init 0xFFFFFFFF,
- * final complement), matching the DUT crc32_pkg. The returned value is
+ * final complement), matching the converted RTL CRC implementation. The returned value is
  * the 32-bit FCS; the stream carries its bytes LSB-first (fcs[7:0]
  * first), which is the byte order the DUT TX path expects
  * (tx_client_capture fcs_tail window / tx_frame_builder emission).
@@ -177,20 +196,18 @@ endfunction
  * @return 32-bit FCS value.
  */
 function automatic bit [31:0] axi_item_c::compute_fcs();
-  byte unsigned bytes_q [];
+  byte unsigned bytes_q[];
   bit [31:0] crc = 'hFFFF_FFFF;
   bytes_q = new[14 + payload.size()];
-  for (int i = 0; i < 6; i++) bytes_q[i]     = dst_addr[47 - 8*i -: 8];
-  for (int i = 0; i < 6; i++) bytes_q[6 + i] = src_addr[47 - 8*i -: 8];
+  for (int i = 0; i < 6; i++) bytes_q[i] = dst_addr[47-8*i-:8];
+  for (int i = 0; i < 6; i++) bytes_q[6+i] = src_addr[47-8*i-:8];
   bytes_q[12] = ether_type[15:8];
   bytes_q[13] = ether_type[7:0];
-  foreach (payload[i]) bytes_q[14 + i] = payload[i];
+  foreach (payload[i]) bytes_q[14+i] = payload[i];
   foreach (bytes_q[i]) begin
     for (int b = 0; b < 8; b++) begin
-      if (crc[0] ^ bytes_q[i][b])
-        crc = (crc >> 1) ^ 32'hEDB8_8320;
-      else
-        crc = crc >> 1;
+      if (crc[0] ^ bytes_q[i][b]) crc = (crc >> 1) ^ 32'hEDB8_8320;
+      else crc = crc >> 1;
     end
   end
   return ~crc;

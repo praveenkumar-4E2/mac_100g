@@ -11,8 +11,7 @@ class mac_reset_driver_c extends uvm_driver #(mac_reset_item_c);
   extern task synchronize();
 endclass
 
-function mac_reset_driver_c::new(string name = "mac_reset_driver_c",
-                                 uvm_component parent = null);
+function mac_reset_driver_c::new(string name = "mac_reset_driver_c", uvm_component parent = null);
   super.new(name, parent);
 endfunction
 
@@ -48,6 +47,5 @@ task mac_reset_driver_c::drive_item(mac_reset_item_c item_h);
 endtask
 
 task mac_reset_driver_c::synchronize();
-  if (cfg_h.synchronize_to_clock)
-    @(vif.drv_cb);
+  if (cfg_h.synchronize_to_clock) @(vif.drv_cb);
 endtask

@@ -39,8 +39,7 @@ endfunction
 task apb_read_sequence_c::body();
   do_read(m_addr, m_expect_slverr);
   fetch_response();
-  m_rdata = m_rsp.rdata;
+  m_rdata  = m_rsp.rdata;
   m_status = m_rsp.status;
-  if (m_check_response)
-    check_status(m_expected_status);
+  if (m_check_response) check_status(m_expected_status);
 endtask

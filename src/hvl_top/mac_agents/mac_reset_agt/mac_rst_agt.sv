@@ -24,12 +24,10 @@ function void mac_reset_agent_c::build_phase(uvm_phase phase);
     sequencer_h = mac_reset_sequencer_c::type_id::create("sequencer_h", this);
     driver_h    = mac_reset_driver_c::type_id::create("driver_h", this);
   end
-  if (cfg_h.has_monitor)
-    monitor_h = mac_reset_monitor_c::type_id::create("monitor_h", this);
+  if (cfg_h.has_monitor) monitor_h = mac_reset_monitor_c::type_id::create("monitor_h", this);
 endfunction
 
 function void mac_reset_agent_c::connect_phase(uvm_phase phase);
   super.connect_phase(phase);
-  if (cfg_h.is_active == UVM_ACTIVE)
-    driver_h.seq_item_port.connect(sequencer_h.seq_item_export);
+  if (cfg_h.is_active == UVM_ACTIVE) driver_h.seq_item_port.connect(sequencer_h.seq_item_export);
 endfunction

@@ -15,7 +15,7 @@ class rs_agent_cfg_c extends uvm_object;
   int m_mac_id;
 
   // Virtual interface driven by the agent (native MAC <-> RS)
-  virtual mac_if vif;
+  virtual mac_rs_stream_if vif;
 
   // Inter-packet gap per IEEE 802.3 (96 bit-times minimum). The
   // driver converts this to idle cycles on the interface: the
@@ -85,8 +85,7 @@ endfunction
 function void rs_agent_cfg_c::validate();
   string problems;
 
-  if (vif == null)
-    problems = {problems, " vif=null"};
+  if (vif == null) problems = {problems, " vif=null"};
   if (is_active == UVM_PASSIVE && !has_monitor)
     problems = {problems, " passive agent with has_monitor=0 observes nothing"};
   if (min_payload_len < 0)
@@ -94,14 +93,14 @@ function void rs_agent_cfg_c::validate();
   if (max_payload_len < 0)
     problems = {problems, $sformatf(" max_payload_len=%0d<0", max_payload_len)};
   if (min_payload_len > max_payload_len)
-    problems = {problems, $sformatf(" payload bounds [%0d:%0d] inverted",
-                                    min_payload_len, max_payload_len)};
-  if (ipg_bits <= 0)
-    problems = {problems, $sformatf(" ipg_bits=%0d<=0", ipg_bits)};
+    problems = {
+      problems, $sformatf(" payload bounds [%0d:%0d] inverted", min_payload_len, max_payload_len)
+    };
+  if (ipg_bits <= 0) problems = {problems, $sformatf(" ipg_bits=%0d<=0", ipg_bits)};
 
   if (problems != "")
-    `uvm_fatal(get_type_name(),
-               $sformatf("%s: invalid configuration:%0s", get_type_name(), problems))
+    `uvm_fatal(get_type_name(), $sformatf("%s: invalid configuration:%0s", get_type_name(), problems
+               ))
 endfunction
 
 /**
@@ -110,12 +109,23 @@ endfunction
  * @return Formatted configuration summary.
  */
 function string rs_agent_cfg_c::convert2string();
-  return {$sformatf("is_active=%0s mac_id=%0d vif=%0d err_inj=%0b",
-                    is_active.name(), m_mac_id, (vif != null),
-                    enable_error_injection),
-           $sformatf(" payload=[%0d:%0d] num_frames_default=%0d has_monitor=%0b",
-                     min_payload_len, max_payload_len, num_frames_default,
-                     has_monitor),
-           $sformatf(" frame_logger=%0b ipg_bits=%0d eth_len_bound=0x%0h",
-                     enable_logger, ipg_bits, eth_len_bound)};
+  return {
+    $sformatf(
+        "is_active=%0s mac_id=%0d vif=%0d err_inj=%0b",
+        is_active.name(),
+        m_mac_id,
+        (vif != null),
+        enable_error_injection
+    ),
+    $sformatf(
+        " payload=[%0d:%0d] num_frames_default=%0d has_monitor=%0b",
+        min_payload_len,
+        max_payload_len,
+        num_frames_default,
+        has_monitor
+    ),
+    $sformatf(
+        " frame_logger=%0b ipg_bits=%0d eth_len_bound=0x%0h", enable_logger, ipg_bits, eth_len_bound
+    )
+  };
 endfunction

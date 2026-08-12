@@ -20,12 +20,12 @@ class axi_monitor_c extends uvm_monitor;
   uvm_analysis_port #(axi_item_c) analysis_port;
   axi_item_c                      axi_item_h;
 
-  virtual axi4_stream_if vif;
-  axi_agent_cfg_c         cfg_h;
+  virtual axi4_stream_if          vif;
+  axi_agent_cfg_c                 cfg_h;
 
   // Instance-local frame counter (UTL-089), read by tests via the monitor
   // handle; replaces the former class-static counter on the config.
-  int mon_rcvd_xtn_cnt = 0;
+  int                             mon_rcvd_xtn_cnt = 0;
 
 
   extern function new(string name = "axi_monitor_c", uvm_component parent = null);
@@ -79,7 +79,7 @@ endfunction
  * @param phase Current UVM run phase.
  */
 task axi_monitor_c::run_phase(uvm_phase phase);
-  byte unsigned frame_q [$];
+  byte unsigned frame_q[$];
   forever begin
     // mon_cb input skew #1step samples the pre-edge value — the exact
     // view the DUT's always_ff capture uses.
@@ -93,17 +93,20 @@ task axi_monitor_c::run_phase(uvm_phase phase);
       // tkeep maps to a valid-byte count (valid_bytes_from_keep), and
       // append_beat_bytes moves the low lanes onto the frame queue.
       void'(mac_hvl_utils_c::append_beat_bytes(
-                frame_q, vif.mon_cb.tdata,
-                mac_hvl_utils_c::valid_bytes_from_keep(
-                    vif.mon_cb.tkeep, $bits(vif.mon_cb.tkeep)),
-                $bits(vif.mon_cb.tkeep)));
+          frame_q,
+          vif.mon_cb.tdata,
+          mac_hvl_utils_c::valid_bytes_from_keep(
+              vif.mon_cb.tkeep, $bits(vif.mon_cb.tkeep)
+          ),
+          $bits(
+              vif.mon_cb.tkeep)
+      ));
       if (vif.mon_cb.tlast) begin
         // UTL-124: the codec EOP byte count is the valid-lane count of the
         // final beat (tkeep), not the whole-frame byte count — the two differ
         // on every multi-beat frame.
-        collect_item(frame_q, vif.mon_cb.tuser,
-                     mac_hvl_utils_c::valid_bytes_from_keep(
-                         vif.mon_cb.tkeep, $bits(vif.mon_cb.tkeep)));
+        collect_item(frame_q, vif.mon_cb.tuser, mac_hvl_utils_c::valid_bytes_from_keep(
+                     vif.mon_cb.tkeep, $bits(vif.mon_cb.tkeep)));
         frame_q.delete();
       end
     end
@@ -128,42 +131,37 @@ function void axi_monitor_c::collect_item(byte unsigned frame_q[$], bit [7:0] tu
   mac_frame_c canon;
   int nbytes = frame_q.size();
 
-  if (mac_frame_codec_c::axi_to_frame(frame_q, tuser, eop_byte_count,
-                                      MAC_FRAME_DIR_AXI_TX, RS_ETH_LEN_BOUND,
-                                      canon) != 0) begin
-    `uvm_error(get_type_name(),
-               $sformatf("axi_to_frame rejected %0d-byte frame (tuser=%02x)",
-                         nbytes, tuser))
+  if (mac_frame_codec_c::axi_to_frame(
+          frame_q, tuser, eop_byte_count, MAC_FRAME_DIR_AXI_TX, RS_ETH_LEN_BOUND, canon
+      ) != 0) begin
+    `uvm_error(get_type_name(), $sformatf("axi_to_frame rejected %0d-byte frame (tuser=%02x)",
+                                          nbytes, tuser))
     return;
   end
 
-  axi_item_h = axi_item_c::type_id::create("axi_item_h");
-  axi_item_h.dst_addr       = canon.da;
-  axi_item_h.src_addr       = canon.sa;
-  axi_item_h.ether_type     = canon.ether_type;
-  axi_item_h.payload        = new[canon.payload.size()];
-  foreach (canon.payload[i])
-    axi_item_h.payload[i]   = canon.payload[i];
-  axi_item_h.insert_fcs     = canon.fcs_present;
-  axi_item_h.fcs            = canon.fcs;
+  axi_item_h            = axi_item_c::type_id::create("axi_item_h");
+  axi_item_h.packet_id  = axi_item_c::next_packet_id++;
+  axi_item_h.dst_addr   = canon.da;
+  axi_item_h.src_addr   = canon.sa;
+  axi_item_h.ether_type = canon.ether_type;
+  axi_item_h.payload    = new[canon.payload.size()];
+  foreach (canon.payload[i]) axi_item_h.payload[i] = canon.payload[i];
+  axi_item_h.insert_fcs      = canon.fcs_present;
+  axi_item_h.fcs             = canon.fcs;
   // AXI status comes from the tuser error bit (mapped by the codec onto the
   // canonical result); length/alignment are not transported on AXI.
-  axi_item_h.crc_error      = (canon.result == MAC_FRAME_RESULT_CRC_ERROR);
+  axi_item_h.crc_error       = (canon.result == MAC_FRAME_RESULT_CRC_ERROR);
   axi_item_h.length_error    = 1'b0;
   axi_item_h.alignment_error = 1'b0;
 
   mon_rcvd_xtn_cnt++;
   mac_txn_logger_c::write(this, "OBSERVE_AXI", axi_item_h);
   if (cfg_h.enable_logger) begin
-    `uvm_info(get_type_name(),
-              $sformatf("mon observed frame: %s nbytes=%0d",
-                        axi_item_h.convert2string(), nbytes),
-              UVM_MEDIUM)
+    `uvm_info(get_type_name(), $sformatf("mon observed frame: %s nbytes=%0d",
+                                         axi_item_h.convert2string(), nbytes), UVM_MEDIUM)
   end else begin
-    `uvm_info(get_type_name(),
-              $sformatf("mon observed frame: %s nbytes=%0d",
-                        axi_item_h.convert2string(), nbytes),
-              UVM_HIGH)
+    `uvm_info(get_type_name(), $sformatf(
+              "mon observed frame: %s nbytes=%0d", axi_item_h.convert2string(), nbytes), UVM_HIGH)
   end
 
   analysis_port.write(axi_item_h);

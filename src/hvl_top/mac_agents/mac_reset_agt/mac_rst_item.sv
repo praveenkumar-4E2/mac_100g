@@ -24,6 +24,11 @@ function mac_reset_item_c::new(string name = "mac_reset_item_c");
 endfunction
 
 function string mac_reset_item_c::convert2string();
-  return $sformatf("operation=%0s reset_id=%0d duration_cycles=%0d event_time=%0t",
-                   operation.name(), reset_id, duration_cycles, event_time);
+  return $sformatf(
+      "operation=%0s reset_id=%0d duration_cycles=%0d event_time=%0t",
+      operation.name(),
+      reset_id,
+      duration_cycles,
+      event_time
+  );
 endfunction

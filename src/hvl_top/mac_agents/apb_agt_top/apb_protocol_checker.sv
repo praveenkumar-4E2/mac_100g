@@ -22,12 +22,12 @@ class apb_protocol_checker_c extends uvm_subscriber #(apb_transfer_t);
 
   apb_agent_cfg_c cfg_h;
 
-  int unsigned m_n_transfers  = 0;
-  int unsigned m_n_waits      = 0;
-  int unsigned m_n_slverr     = 0;
-  int unsigned m_n_timeout    = 0;
-  int unsigned m_n_reset_abort = 0;
-  int unsigned m_n_protocol_err = 0;
+  int unsigned    m_n_transfers    = 0;
+  int unsigned    m_n_waits        = 0;
+  int unsigned    m_n_slverr       = 0;
+  int unsigned    m_n_timeout      = 0;
+  int unsigned    m_n_reset_abort  = 0;
+  int unsigned    m_n_protocol_err = 0;
 
   extern function new(string name = "apb_protocol_checker_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
@@ -58,8 +58,8 @@ endfunction
 function void apb_protocol_checker_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
   if (!uvm_config_db#(apb_agent_cfg_c)::get(this, "", "apb_agent_cfg", cfg_h)) begin
-    `uvm_fatal("CONFIG_ERROR",
-               $sformatf("%s: cannot find apb_agent_cfg in config db", get_type_name()))
+    `uvm_fatal("CONFIG_ERROR", $sformatf("%s: cannot find apb_agent_cfg in config db",
+                                         get_type_name()))
   end
   cfg_h.validate();
 endfunction
@@ -77,61 +77,53 @@ function void apb_protocol_checker_c::write(apb_transfer_t t);
   // sources; the monitor publishes neither).
   if (t.status == APB_TIMEOUT) begin
     m_n_timeout++;
-    `uvm_error(APB_TIMEOUT_ID,
-               $sformatf("APB checker: observed timeout transfer: %s",
-                         t.convert2string()))
+    `uvm_error(APB_TIMEOUT_ID, $sformatf("APB checker: observed timeout transfer: %s",
+                                         t.convert2string()))
   end
   if (t.status == APB_RESET_ABORT) begin
     m_n_reset_abort++;
-    `uvm_error(APB_RESET_ABORT_ID,
-               $sformatf("APB checker: observed reset-aborted transfer: %s",
-                         t.convert2string()))
+    `uvm_error(APB_RESET_ABORT_ID, $sformatf("APB checker: observed reset-aborted transfer: %s",
+                                             t.convert2string()))
   end
 
   // E-17: optional word-alignment policy.
-  if (cfg_h.m_require_word_alignment &&
-      (t.addr % cfg_h.m_address_alignment) != 0) begin
+  if (cfg_h.m_require_word_alignment && (t.addr % cfg_h.m_address_alignment) != 0) begin
     m_n_protocol_err++;
-    `uvm_error(APB_PROTOCOL_ID,
-               $sformatf("APB checker: unaligned access (align=%0d): %s",
-                         cfg_h.m_address_alignment, t.convert2string()))
+    `uvm_error(APB_PROTOCOL_ID, $sformatf("APB checker: unaligned access (align=%0d): %s",
+                                          cfg_h.m_address_alignment, t.convert2string()))
   end
 
   // E-18: optional unknown-value policy (flag set by the monitor from its
   // 4-state samples; the item fields themselves are 2-state).
   if (cfg_h.m_check_known_values && t.unknown_sampled) begin
     m_n_protocol_err++;
-    `uvm_error(APB_PROTOCOL_ID,
-               $sformatf("APB checker: unknown (X/Z) value sampled during transfer: %s",
-                         t.convert2string()))
+    `uvm_error(APB_PROTOCOL_ID, $sformatf(
+                                    "APB checker: unknown (X/Z) value sampled during transfer: %s",
+                                    t.convert2string()))
   end
 
   // E-19: unexpected-slave-error policy.
   if (t.status == APB_SLVERR) begin
     m_n_slverr++;
     if (cfg_h.m_fail_on_unexpected_slverr)
-      `uvm_error(APB_SLV_UNEXPECTED_ID,
-                 $sformatf("APB checker: unexpected PSLVERR observed: %s",
-                           t.convert2string()))
+      `uvm_error(APB_SLV_UNEXPECTED_ID, $sformatf(
+                 "APB checker: unexpected PSLVERR observed: %s", t.convert2string()))
     else
-      `uvm_info(APB_SLV_UNEXPECTED_ID,
-                $sformatf("APB checker: observed PSLVERR (policy allows): %s",
-                          t.convert2string()),
+      `uvm_info(APB_SLV_UNEXPECTED_ID, $sformatf(
+                "APB checker: observed PSLVERR (policy allows): %s", t.convert2string()),
                 UVM_MEDIUM)
   end
 
   // E-20: read/write response consistency.
   if (t.slverr != (t.status == APB_SLVERR)) begin
     m_n_protocol_err++;
-    `uvm_error(APB_PROTOCOL_ID,
-               $sformatf("APB checker: status/slverr inconsistent: %s",
-                         t.convert2string()))
+    `uvm_error(APB_PROTOCOL_ID, $sformatf("APB checker: status/slverr inconsistent: %s",
+                                          t.convert2string()))
   end
   if (t.pwrite && t.rdata !== '0) begin
     m_n_protocol_err++;
-    `uvm_error(APB_PROTOCOL_ID,
-               $sformatf("APB checker: write carried sampled read data: %s",
-                         t.convert2string()))
+    `uvm_error(APB_PROTOCOL_ID, $sformatf("APB checker: write carried sampled read data: %s",
+                                          t.convert2string()))
   end
 endfunction
 
@@ -141,9 +133,14 @@ endfunction
  * @param phase Current UVM report phase.
  */
 function void apb_protocol_checker_c::report_phase(uvm_phase phase);
-  `uvm_info(get_type_name(),
-            $sformatf("APB checker summary: transfers=%0d waits=%0d slverr=%0d timeout=%0d reset_abort=%0d protocol_err=%0d",
-                      m_n_transfers, m_n_waits, m_n_slverr, m_n_timeout,
-                      m_n_reset_abort, m_n_protocol_err),
-            UVM_MEDIUM)
+  `uvm_info(get_type_name(), $sformatf(
+            "APB checker summary: transfers=%0d waits=%0d slverr=%0d timeout=%0d reset_abort=%0d protocol_err=%0d"
+                ,
+            m_n_transfers,
+            m_n_waits,
+            m_n_slverr,
+            m_n_timeout,
+            m_n_reset_abort,
+            m_n_protocol_err
+            ), UVM_MEDIUM)
 endfunction

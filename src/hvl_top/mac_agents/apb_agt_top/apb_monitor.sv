@@ -19,15 +19,19 @@
 class apb_monitor_c extends uvm_monitor;
   `uvm_component_utils(apb_monitor_c)
 
-  typedef enum { MON_IDLE, MON_SETUP, MON_ACCESS } mon_state_e;
+  typedef enum {
+    MON_IDLE,
+    MON_SETUP,
+    MON_ACCESS
+  } mon_state_e;
 
-  apb_agent_cfg_c cfg_h;
+  apb_agent_cfg_c                     cfg_h;
   uvm_analysis_port #(apb_transfer_t) ap;
 
-  mon_state_e     m_state = MON_IDLE;
-  apb_transfer_t  m_latched;
-  longint unsigned m_cycle   = 0;
-  longint unsigned m_ordinal = 0;
+  mon_state_e                         m_state    = MON_IDLE;
+  apb_transfer_t                      m_latched;
+  longint unsigned                    m_cycle    = 0;
+  longint unsigned                    m_ordinal  = 0;
 
   extern function new(string name = "apb_monitor_c", uvm_component parent = null);
   extern function void build_phase(uvm_phase phase);
@@ -60,8 +64,8 @@ endfunction
 function void apb_monitor_c::build_phase(uvm_phase phase);
   super.build_phase(phase);
   if (!uvm_config_db#(apb_agent_cfg_c)::get(this, "", "apb_agent_cfg", cfg_h)) begin
-    `uvm_fatal("CONFIG_ERROR",
-               $sformatf("%s: cannot find apb_agent_cfg in config db", get_type_name()))
+    `uvm_fatal("CONFIG_ERROR", $sformatf("%s: cannot find apb_agent_cfg in config db",
+                                         get_type_name()))
   end
   cfg_h.validate();
   ap = new("ap", this);
@@ -86,15 +90,13 @@ task apb_monitor_c::run_phase(uvm_phase phase);
       if (m_state != MON_IDLE) begin
         `uvm_info(APB_RESET_ABORT_ID,
                   $sformatf("APB monitor: reset during transfer, partial state cleared: %s",
-                            m_latched.convert2string()),
-                  UVM_MEDIUM)
+                            m_latched.convert2string()), UVM_MEDIUM)
       end
       reset_state();
     end else begin
       case (m_state)
         MON_IDLE: begin
-          if (cfg_h.m_vif.mon_cb.psel && !cfg_h.m_vif.mon_cb.penable)
-            latch_setup();
+          if (cfg_h.m_vif.mon_cb.psel && !cfg_h.m_vif.mon_cb.penable) latch_setup();
         end
         MON_SETUP: begin
           if (cfg_h.m_vif.mon_cb.psel && cfg_h.m_vif.mon_cb.penable) begin
@@ -103,14 +105,12 @@ task apb_monitor_c::run_phase(uvm_phase phase);
             if (cfg_h.m_vif.mon_cb.pready) begin
               // Immediate completion: access begins and completes on the same
               // clock (zero wait cycles). Sample the completing access now.
-              m_latched.slverr   = cfg_h.m_vif.mon_cb.pslverr;
-              if (!m_latched.pwrite)
-                m_latched.rdata  = cfg_h.m_vif.mon_cb.prdata;
+              m_latched.slverr = cfg_h.m_vif.mon_cb.pslverr;
+              if (!m_latched.pwrite) m_latched.rdata = cfg_h.m_vif.mon_cb.prdata;
               if (cfg_h.m_check_known_values)
-                m_latched.unknown_sampled =
-                  m_latched.unknown_sampled ||
-                  $isunknown({cfg_h.m_vif.mon_cb.prdata,
-                              cfg_h.m_vif.mon_cb.pslverr});
+                m_latched.unknown_sampled = m_latched.unknown_sampled || $isunknown(
+                    {cfg_h.m_vif.mon_cb.prdata, cfg_h.m_vif.mon_cb.pslverr}
+                );
               m_latched.completion_time  = $time;
               m_latched.completion_cycle = m_cycle;
               m_latched.status           = m_latched.slverr ? APB_SLVERR : APB_OK;
@@ -133,14 +133,12 @@ task apb_monitor_c::run_phase(uvm_phase phase);
         end
         MON_ACCESS: begin
           if (cfg_h.m_vif.mon_cb.pready) begin
-            m_latched.slverr   = cfg_h.m_vif.mon_cb.pslverr;
-            if (!m_latched.pwrite)
-              m_latched.rdata  = cfg_h.m_vif.mon_cb.prdata;
+            m_latched.slverr = cfg_h.m_vif.mon_cb.pslverr;
+            if (!m_latched.pwrite) m_latched.rdata = cfg_h.m_vif.mon_cb.prdata;
             if (cfg_h.m_check_known_values)
-              m_latched.unknown_sampled =
-                m_latched.unknown_sampled ||
-                $isunknown({cfg_h.m_vif.mon_cb.prdata,
-                            cfg_h.m_vif.mon_cb.pslverr});
+              m_latched.unknown_sampled = m_latched.unknown_sampled || $isunknown(
+                  {cfg_h.m_vif.mon_cb.prdata, cfg_h.m_vif.mon_cb.pslverr}
+              );
             m_latched.completion_time  = $time;
             m_latched.completion_cycle = m_cycle;
             m_latched.status           = m_latched.slverr ? APB_SLVERR : APB_OK;
@@ -190,16 +188,14 @@ endfunction
  * replaced by this fresh one).
  */
 function void apb_monitor_c::latch_setup();
-  m_latched = apb_transfer_t::type_id::create("mon_item");
-  m_latched.pwrite        = cfg_h.m_vif.mon_cb.pwrite;
-  m_latched.addr          = cfg_h.m_vif.mon_cb.paddr;
-  m_latched.wdata         = cfg_h.m_vif.mon_cb.pwdata;
-  m_latched.setup_time    = $time;
-  m_latched.setup_cycle   = m_cycle;
+  m_latched             = apb_transfer_t::type_id::create("mon_item");
+  m_latched.pwrite      = cfg_h.m_vif.mon_cb.pwrite;
+  m_latched.addr        = cfg_h.m_vif.mon_cb.paddr;
+  m_latched.wdata       = cfg_h.m_vif.mon_cb.pwdata;
+  m_latched.setup_time  = $time;
+  m_latched.setup_cycle = m_cycle;
   if (cfg_h.m_check_known_values)
-    m_latched.unknown_sampled =
-      $isunknown({cfg_h.m_vif.mon_cb.paddr,
-                  cfg_h.m_vif.mon_cb.pwdata});
+    m_latched.unknown_sampled = $isunknown({cfg_h.m_vif.mon_cb.paddr, cfg_h.m_vif.mon_cb.pwdata});
   m_state = MON_SETUP;
 endfunction
 

@@ -17,11 +17,11 @@ class axi_driver_c extends uvm_driver #(axi_item_c);
   `uvm_component_utils(axi_driver_c)
 
   virtual axi4_stream_if vif;
-  axi_agent_cfg_c         cfg_h;
+  axi_agent_cfg_c        cfg_h;
 
   // Instance-local frame counter (UTL-088), read by tests via the driver
   // handle; replaces the former class-static counter on the config.
-  int drv_data_sent_cnt = 0;
+  int                    drv_data_sent_cnt = 0;
 
   extern function new(string name = "axi_driver_c", uvm_component parent = null);
 
@@ -67,8 +67,9 @@ function void axi_driver_c::build_phase(uvm_phase phase);
   // agent-only harnesses, so reject the setting here instead of ever
   // asserting tready from the source driver.
   if (cfg_h.generate_backpressure)
-    `uvm_fatal("CONFIG_ERROR",
-               $sformatf("axi_agent_cfg_c::generate_backpressure=1 is not allowed for the DUT-facing AXI TX source driver: it would drive the DUT-owned tready; disable generate_backpressure in DUT-facing mode"))
+    `uvm_fatal("CONFIG_ERROR", $sformatf(
+               "axi_agent_cfg_c::generate_backpressure=1 is not allowed for the DUT-facing AXI TX source driver: it would drive the DUT-owned tready; disable generate_backpressure in DUT-facing mode"
+               ))
   vif = cfg_h.vif;
 endfunction
 
@@ -123,13 +124,13 @@ endtask
  * @param item Transaction to drive.
  */
 task axi_driver_c::drive_frame(axi_item_c item);
-  byte unsigned frame_q[$];
-  bit [511:0]   tdata;
-  bit [63:0]    tkeep;
-  bit [7:0]     tuser;
-  int           frame_size;
-  int           beats;
-  int           valid_bytes;
+  byte unsigned         frame_q     [$];
+  bit           [511:0] tdata;
+  bit           [ 63:0] tkeep;
+  bit           [  7:0] tuser;
+  int                   frame_size;
+  int                   beats;
+  int                   valid_bytes;
 
   mac_txn_logger_c::write(this, "DRIVE_AXI", item);
 
@@ -139,10 +140,8 @@ task axi_driver_c::drive_frame(axi_item_c item);
   void'(mac_hvl_utils_c::encode_be48(frame_q, item.dst_addr));
   void'(mac_hvl_utils_c::encode_be48(frame_q, item.src_addr));
   void'(mac_hvl_utils_c::encode_be16(frame_q, item.ether_type));
-  foreach (item.payload[i])
-    frame_q.push_back(item.payload[i]);
-  if (item.insert_fcs)
-    void'(mac_hvl_utils_c::fcs_to_wire_bytes(frame_q, item.fcs));
+  foreach (item.payload[i]) frame_q.push_back(item.payload[i]);
+  if (item.insert_fcs) void'(mac_hvl_utils_c::fcs_to_wire_bytes(frame_q, item.fcs));
 
   frame_size = frame_q.size();
   tuser = {6'b0, item.insert_fcs, item.crc_error};
@@ -157,14 +156,11 @@ task axi_driver_c::drive_frame(axi_item_c item);
 
   drv_data_sent_cnt++;
   if (cfg_h.enable_logger) begin
-    `uvm_info(get_type_name(),
-              $sformatf("drv sent frame: %s beats=%0d bytes=%0d",
-                        item.convert2string(), beats, frame_size),
-              UVM_MEDIUM)
+    `uvm_info(get_type_name(), $sformatf("drv sent frame: %s beats=%0d bytes=%0d",
+                                         item.convert2string(), beats, frame_size), UVM_MEDIUM)
   end else begin
-    `uvm_info(get_type_name(),
-              $sformatf("drv sent frame: %s beats=%0d bytes=%0d",
-                        item.convert2string(), beats, frame_size),
+    `uvm_info(get_type_name(), $sformatf(
+              "drv sent frame: %s beats=%0d bytes=%0d", item.convert2string(), beats, frame_size),
               UVM_HIGH)
   end
 endtask
@@ -183,8 +179,7 @@ endtask
  * @param tlast End-of-frame marker.
  * @param tuser Side-note flags (error, fcs_present).
  */
-task axi_driver_c::send_beat(logic [511:0] tdata, logic [63:0] tkeep,
-                             bit tlast, bit [7:0] tuser);
+task axi_driver_c::send_beat(logic [511:0] tdata, logic [63:0] tkeep, bit tlast, bit [7:0] tuser);
   vif.tvalid <= 1'b1;
   vif.tdata  <= tdata;
   vif.tkeep  <= tkeep;

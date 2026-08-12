@@ -29,40 +29,40 @@ typedef enum bit [2:0] {
  * same widths from the bound virtual interface.
  */
 class apb_transfer_c #(
-  parameter int unsigned ADDR_WIDTH = 16,
-  parameter int unsigned DATA_WIDTH = 32
+    parameter int unsigned ADDR_WIDTH = 16,
+    parameter int unsigned DATA_WIDTH = 32
 ) extends uvm_sequence_item;
   `uvm_object_param_utils(apb_transfer_c)
 
   // Request fields (driver consumes these to drive the transfer).
-  rand bit                  pwrite;
-  rand bit [ADDR_WIDTH-1:0] addr;
-  rand bit [DATA_WIDTH-1:0] wdata;
+  rand bit                               pwrite;
+  rand bit              [ADDR_WIDTH-1:0] addr;
+  rand bit              [DATA_WIDTH-1:0] wdata;
 
   // Completion response fields (driver fills these after sampling).
-  bit [DATA_WIDTH-1:0] rdata;
-  bit                  slverr;
-  apb_transfer_status_e status;
+  bit                   [DATA_WIDTH-1:0] rdata;
+  bit                                    slverr;
+  apb_transfer_status_e                  status;
 
   // Observation metadata (monitor/driver populate these).
-  time               setup_time;
-  time               access_time;
-  time               completion_time;
-  longint unsigned   setup_cycle;
-  longint unsigned   access_cycle;
-  longint unsigned   completion_cycle;
-  int unsigned       wait_cycles;
-  longint unsigned   ordinal;
-  int unsigned       source_id;
-  string             tag;
+  time                                   setup_time;
+  time                                   access_time;
+  time                                   completion_time;
+  longint unsigned                       setup_cycle;
+  longint unsigned                       access_cycle;
+  longint unsigned                       completion_cycle;
+  int unsigned                           wait_cycles;
+  longint unsigned                       ordinal;
+  int unsigned                           source_id;
+  string                                 tag;
 
   // Intent metadata, not sampled from the pins.
-  bit                expect_slverr;
+  bit                                    expect_slverr;
 
   // Observation metadata: set by the monitor when any sampled value signal
   // (address/data/handshake) carried an X/Z during the transfer window, and
   // consumed by the checker's optional unknown-value policy.
-  bit                unknown_sampled;
+  bit                                    unknown_sampled;
 
   extern function new(string name = "apb_transfer_c");
   extern function void do_copy(uvm_object rhs);
@@ -92,39 +92,38 @@ endfunction
 function void apb_transfer_c::do_copy(uvm_object rhs);
   apb_transfer_c rhs_h;
   if (!$cast(rhs_h, rhs)) begin
-    `uvm_fatal("TYPE_MISMATCH",
-               $sformatf("do_copy: %s is not an apb_transfer_c",
-                         rhs.get_type_name()))
+    `uvm_fatal("TYPE_MISMATCH", $sformatf("do_copy: %s is not an apb_transfer_c",
+                                          rhs.get_type_name()))
   end
   super.do_copy(rhs);
 
   // Request fields.
-  pwrite = rhs_h.pwrite;
-  addr   = rhs_h.addr;
-  wdata  = rhs_h.wdata;
+  pwrite           = rhs_h.pwrite;
+  addr             = rhs_h.addr;
+  wdata            = rhs_h.wdata;
 
   // Response fields.
-  rdata  = rhs_h.rdata;
-  slverr = rhs_h.slverr;
-  status = rhs_h.status;
+  rdata            = rhs_h.rdata;
+  slverr           = rhs_h.slverr;
+  status           = rhs_h.status;
 
   // Observation metadata.
-  setup_time     = rhs_h.setup_time;
-  access_time    = rhs_h.access_time;
-  completion_time = rhs_h.completion_time;
-  setup_cycle    = rhs_h.setup_cycle;
-  access_cycle   = rhs_h.access_cycle;
+  setup_time       = rhs_h.setup_time;
+  access_time      = rhs_h.access_time;
+  completion_time  = rhs_h.completion_time;
+  setup_cycle      = rhs_h.setup_cycle;
+  access_cycle     = rhs_h.access_cycle;
   completion_cycle = rhs_h.completion_cycle;
-  wait_cycles    = rhs_h.wait_cycles;
-  ordinal        = rhs_h.ordinal;
-  source_id      = rhs_h.source_id;
-  tag            = rhs_h.tag;
+  wait_cycles      = rhs_h.wait_cycles;
+  ordinal          = rhs_h.ordinal;
+  source_id        = rhs_h.source_id;
+  tag              = rhs_h.tag;
 
   // Intent metadata.
-  expect_slverr   = rhs_h.expect_slverr;
+  expect_slverr    = rhs_h.expect_slverr;
 
   // Observation metadata.
-  unknown_sampled = rhs_h.unknown_sampled;
+  unknown_sampled  = rhs_h.unknown_sampled;
 endfunction
 
 /**
@@ -143,12 +142,8 @@ function bit apb_transfer_c::do_compare(uvm_object rhs, uvm_comparer comparer);
   apb_transfer_c rhs_h;
   if (!super.do_compare(rhs, comparer)) return 0;
   if (!$cast(rhs_h, rhs)) return 0;
-  if (pwrite      !== rhs_h.pwrite      ||
-      addr        !== rhs_h.addr        ||
-      wdata       !== rhs_h.wdata       ||
-      rdata       !== rhs_h.rdata       ||
-      slverr      !== rhs_h.slverr      ||
-      status      !== rhs_h.status      ||
+  if (pwrite !== rhs_h.pwrite || addr !== rhs_h.addr || wdata !== rhs_h.wdata ||
+      rdata !== rhs_h.rdata || slverr !== rhs_h.slverr || status !== rhs_h.status ||
       wait_cycles !== rhs_h.wait_cycles)
     return 0;
   return 1;
@@ -161,22 +156,22 @@ endfunction
  */
 function void apb_transfer_c::do_print(uvm_printer printer);
   super.do_print(printer);
-  printer.print_field("pwrite",  pwrite,  1, UVM_BIN);
-  printer.print_field("addr",    addr,    ADDR_WIDTH, UVM_HEX);
-  printer.print_field("wdata",   wdata,   DATA_WIDTH, UVM_HEX);
-  printer.print_field("rdata",   rdata,   DATA_WIDTH, UVM_HEX);
-  printer.print_field("slverr",  slverr,  1, UVM_BIN);
+  printer.print_field("pwrite", pwrite, 1, UVM_BIN);
+  printer.print_field("addr", addr, ADDR_WIDTH, UVM_HEX);
+  printer.print_field("wdata", wdata, DATA_WIDTH, UVM_HEX);
+  printer.print_field("rdata", rdata, DATA_WIDTH, UVM_HEX);
+  printer.print_field("slverr", slverr, 1, UVM_BIN);
   printer.print_string("status", status.name());
-  printer.print_field("setup_time",      setup_time,      64, UVM_TIME);
-  printer.print_field("access_time",     access_time,     64, UVM_TIME);
+  printer.print_field("setup_time", setup_time, 64, UVM_TIME);
+  printer.print_field("access_time", access_time, 64, UVM_TIME);
   printer.print_field("completion_time", completion_time, 64, UVM_TIME);
-  printer.print_field("setup_cycle",      setup_cycle,      64, UVM_DEC);
-  printer.print_field("access_cycle",     access_cycle,     64, UVM_DEC);
+  printer.print_field("setup_cycle", setup_cycle, 64, UVM_DEC);
+  printer.print_field("access_cycle", access_cycle, 64, UVM_DEC);
   printer.print_field("completion_cycle", completion_cycle, 64, UVM_DEC);
   printer.print_field("wait_cycles", wait_cycles, 32, UVM_DEC);
-  printer.print_field("ordinal",    ordinal,    64, UVM_DEC);
-  printer.print_field("source_id",  source_id,  32, UVM_DEC);
-  printer.print_string("tag",  tag);
+  printer.print_field("ordinal", ordinal, 64, UVM_DEC);
+  printer.print_field("source_id", source_id, 32, UVM_DEC);
+  printer.print_string("tag", tag);
   printer.print_field("expect_slverr", expect_slverr, 1, UVM_BIN);
   printer.print_field("unknown_sampled", unknown_sampled, 1, UVM_BIN);
 endfunction
@@ -187,11 +182,20 @@ endfunction
  * @return Formatted transfer summary.
  */
 function string apb_transfer_c::convert2string();
-  return {$sformatf("%s addr=%h wdata=%h rdata=%h slverr=%0b wait=%0d ord=%0d src=%0d",
-                    pwrite ? "WR" : "RD", addr, wdata, rdata, slverr, wait_cycles,
-                    ordinal, source_id),
-           $sformatf(" status=%s tag=%s unknown=%0b", status.name(), tag,
-                     unknown_sampled)};
+  return {
+    $sformatf(
+        "%s addr=%h wdata=%h rdata=%h slverr=%0b wait=%0d ord=%0d src=%0d",
+        pwrite ? "WR" : "RD",
+        addr,
+        wdata,
+        rdata,
+        slverr,
+        wait_cycles,
+        ordinal,
+        source_id
+    ),
+    $sformatf(" status=%s tag=%s unknown=%0b", status.name(), tag, unknown_sampled)
+  };
 endfunction
 
 // Binding typedef for the current non-parameterized apb_if specialization
