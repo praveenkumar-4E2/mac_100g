@@ -4,7 +4,9 @@ class mac_txn_logger_c;
   static int    fd = 0;
   static string path = "";
 
-  protected function new(); endfunction
+  protected
+  function new();
+  endfunction
 
   static function void open_if_needed();
     string test_name;
@@ -23,8 +25,7 @@ class mac_txn_logger_c;
     else $fdisplay(fd, "# MAC transaction trace | test=%s", test_name);
   endfunction
 
-  static function void write(uvm_component source, string action,
-                             uvm_object transaction);
+  static function void write(uvm_component source, string action, uvm_object transaction);
     string source_name;
     open_if_needed();
     if (fd == 0) return;

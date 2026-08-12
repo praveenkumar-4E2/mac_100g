@@ -8,7 +8,6 @@ package mac_test_pkg;
   `include "mac_txn_logger.svh"
   `include "mac_frame_c.svh"
   `include "mac_frame_codec.svh"
-  `include "mac_compare_utils.svh"
   `include "mac_hvl_config.svh"
   `include "mac_wait_utils.svh"
 
@@ -49,7 +48,6 @@ package mac_test_pkg;
   `include "apb_sequence_base.sv"
   `include "apb_write_sequence.sv"
   `include "apb_read_sequence.sv"
-  `include "apb_burst_sequence.sv"
   `include "apb_driver.sv"
   `include "apb_monitor.sv"
   `include "apb_protocol_checker.sv"
