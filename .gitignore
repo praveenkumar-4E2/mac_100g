@@ -8,6 +8,8 @@
 *.key
 *.ini
 *.vstf
+*.db
+*.dbg
 
 # Compile
 work/
@@ -22,6 +24,12 @@ DVEfiles/
 # Coverage
 cov/
 urgReport/
+logs/
+results/
+coverage/
+logs/
+results/
+coverage/
 
 # Editor
 .vscode/
@@ -54,4 +62,10 @@ Session.vim
 # QuestaSim transient
 transcript
 wlftzr*
+tcl_stacktrace.txt
+.visualizer/
+sim/Questasim/*_????????-??????/
+
+# Python
+__pycache__/
 
